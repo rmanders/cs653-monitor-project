@@ -3,7 +3,7 @@
  * and open the template in the editor.
  */
 
-package drschlock;
+package test.CommandInterpreter;
 
 import cs653.ActiveClient;
 import org.junit.After;
