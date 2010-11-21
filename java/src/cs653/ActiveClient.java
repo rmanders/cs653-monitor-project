@@ -55,7 +55,7 @@ public class ActiveClient extends CommandInterpreter implements Runnable
     // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="login">
-    private boolean login() {
+    public boolean login() {
         MessageGroup msgs;
         Directive dir;
         boolean result;
@@ -95,7 +95,7 @@ public class ActiveClient extends CommandInterpreter implements Runnable
                             + dir);
                 }
                 COOKIE = dir.getPayload();
-                // TODO: Save ident and cookie
+                this.saveConfig(PASSWORD, COOKIE);
             } else if (dir.getArg().equals("ALIVE")) {
                 result = executeCommand(Command.ALIVE);
                 if (!result) {

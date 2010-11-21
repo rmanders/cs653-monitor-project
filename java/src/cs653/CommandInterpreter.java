@@ -58,6 +58,10 @@ public class CommandInterpreter
         logger.debug("Instanced CommandInterpreter");
     }
 
+    public CommandInterpreter( String identity ) {
+        this.identity = identity;
+    }
+
     // <editor-fold defaultstate="collapsed" desc="openConnection">
     /**
      * Opens a socket connection at the specified port and host
@@ -66,10 +70,12 @@ public class CommandInterpreter
      * @param port The Host port
      * @return
      */
-    protected boolean openConnection(final String host, final int port) {
+    public boolean openConnection(final String host, final int port) {
         try {
             logger.debug("Connecting to: " + host + ", " + port);
+            logger.debug("TEST1");
             sockConnection = new Socket(host, port);
+            logger.debug("TEST2");
         } catch (UnknownHostException ex) {
             logger.error(ex);
             sockConnection = null;
@@ -137,6 +143,7 @@ public class CommandInterpreter
             List<Directive> dirs = new LinkedList<Directive>();
             Directive dir = null;
             String strPlain = bufferIn.readLine().trim();
+            //logger.debug(strPlain);
             while (!strPlain.matches("WAITING(.)*")) {
                 dir = Directive.getInstance(strPlain);
                 if (null == dir) {
@@ -271,7 +278,7 @@ public class CommandInterpreter
                 logger.error("Failed to write config file: " + e);
                 return;
             }
-            logger.debug("Saved Configuration Successfully.");
+            logger.debug("Saved Configuration file [" + FILENAME + "] Successfully.");
         }
     }
     // </editor-fold>
@@ -295,7 +302,7 @@ public class CommandInterpreter
             logger.error("Failed to load config file: " + e);
             return;
         }
-        logger.debug("Config file loaded successfully.");
+        logger.debug("Config file[" + FILENAME + "] loaded successfully.");
     }
     // </editor-fold>
 }
