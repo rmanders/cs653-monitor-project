@@ -21,6 +21,9 @@ public class ActiveClient extends CommandInterpreter implements Runnable
     public ActiveClient( String monitorHost, int monitorPort, int hostPort,
             String identity, String password ) {
         super( monitorHost, monitorPort, hostPort, identity, password );
+
+        //TODO: Remove this from hard code
+        HOSTNAME = "localhost";
     }
 
     // <editor-fold defaultstate="collapsed" desc="launch">
