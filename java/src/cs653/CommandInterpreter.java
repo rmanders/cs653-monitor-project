@@ -29,29 +29,30 @@ import java.util.Scanner;
  */
 public class CommandInterpreter
 {
-    private final Logger logger =
-            Logger.getLogger(CommandInterpreter.class);
 
     protected static String COOKIE = null;
-    protected static String HOST_PORT = null;
     protected static String HOSTNAME = null;
     protected static String PASSWORD;
     protected static String MONITORHOST = null;
     protected static int MONITORPORT;
+    protected static int HOST_PORT;
     protected static final String FILENAME = "c:\\andersr9.txt";
 
+    protected Socket socConnection = null;
     private final String identity;
-    private Socket sockConnection = null;
     private PrintWriter bufferOut = null;;
     private BufferedReader bufferIn = null;
+    private final Logger logger = Logger.getLogger(CommandInterpreter.class);
 
     public CommandInterpreter(
             String monitorHost,
             int monitorPort,
+            int hostPort,
             String identity,
             String password) {
         MONITORHOST = monitorHost;
         MONITORPORT = monitorPort;
+        HOST_PORT = hostPort;
         this.identity = identity;
         PASSWORD = password;
         loadConfig();
@@ -74,24 +75,38 @@ public class CommandInterpreter
         try {
             logger.debug("Connecting to: " + host + ", " + port);
             logger.debug("TEST1");
-            sockConnection = new Socket(host, port);
+            socConnection = new Socket(host, port);
             logger.debug("TEST2");
         } catch (UnknownHostException ex) {
             logger.error(ex);
-            sockConnection = null;
+            socConnection = null;
             return false;
         } catch (IOException ex) {
             logger.error(ex);
-            sockConnection = null;
+            socConnection = null;
             return false;
         }
         logger.debug("Successfully opened Socket connection to "
                 + host + " at port " + String.valueOf(port));
+
+        return initConnectionIO();
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="initConnectionIO">
+    /**
+     * initialized the bufferIn and bufferOut for reading and writing to
+     * the socket. Note if this is called with a closed socket it will return
+     * false.
+     *
+     * @return True if IO buffers were successfully created for the socket
+     * false otherwise.
+     */
+    protected boolean initConnectionIO() {
         try {
-            bufferIn = new BufferedReader(new InputStreamReader(sockConnection
-                    .getInputStream()));
+            bufferIn = new BufferedReader(new InputStreamReader(socConnection.getInputStream()));
             logger.debug("Successfully opened input buffer.");
-            bufferOut = new PrintWriter(sockConnection.getOutputStream(), true );
+            bufferOut = new PrintWriter(socConnection.getOutputStream(), true);
             logger.debug("Successfully opened output buffer.");
 
         } catch (IOException ex) {
@@ -119,9 +134,9 @@ public class CommandInterpreter
                 bufferIn = null;
                 logger.debug("Input buffer closed");
             }
-            if (null != sockConnection) {
-                sockConnection.close();
-                sockConnection = null;
+            if (null != socConnection) {
+                socConnection.close();
+                socConnection = null;
                 logger.debug("Socket connection closed.");
             }
         } catch (IOException ex) {
@@ -227,7 +242,7 @@ public class CommandInterpreter
                 if (args.length == 2) {
                     sendCommand(command, args[0], args[1]);
                 } else {
-                    sendCommand(command, HOSTNAME, HOST_PORT);
+                    sendCommand(command, HOSTNAME, String.valueOf(HOST_PORT));
                 }
                 break;
             }

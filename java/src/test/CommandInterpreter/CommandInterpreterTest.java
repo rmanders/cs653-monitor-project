@@ -40,7 +40,7 @@ public class CommandInterpreterTest {
 
     @Test
     public void BigAssTest() {
-        ActiveClient client = new ActiveClient("localhost",8150, "andersr9","password");
+        ActiveClient client = new ActiveClient("localhost",8150, 8250,"andersr9","password");
         client.launch();
     }
 

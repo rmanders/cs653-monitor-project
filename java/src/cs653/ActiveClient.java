@@ -18,9 +18,9 @@ public class ActiveClient extends CommandInterpreter implements Runnable
             Logger.getLogger(ActiveClient.class);
     private Thread thread = null;
 
-    public ActiveClient( String monitorHost, int monitorPort,
+    public ActiveClient( String monitorHost, int monitorPort, int hostPort,
             String identity, String password ) {
-        super( monitorHost, monitorPort, identity, password );
+        super( monitorHost, monitorPort, hostPort, identity, password );
     }
 
     // <editor-fold defaultstate="collapsed" desc="launch">
