@@ -24,6 +24,7 @@ public class KarnCodec {
 
     public final static int RADIX = 32;
     public final static int PADSIZE = 40;
+
     private final static MessageDigest md;
     private final static Logger logger = Logger.getLogger(KarnCodec.class);
 
