@@ -7,7 +7,16 @@ package cs653.security;
 
 /**
  *
- * @author rmanders
+ * @author Ryan Anderson
+ * @author Franco?
+ *
+ * Modified Franco's provided code to add a built-in de-serialization
+ * method to load the serialized DHKey object from a file.
+ *
+ * All this class does is hold the public key values p & g, and allows them
+ * to be loaded from a file. We'll pass a loaded DHKey object to our security
+ * code in order to generate our secret key.
+ *
  */
 import java.io.FileInputStream;
 import java.io.ObjectInputStream;
@@ -23,8 +32,7 @@ import java.math.BigInteger;
  */
 
 class DHKey implements Serializable {
-
-    /* These two make up the public Key */
+    
     private BigInteger p;
     private BigInteger g;
     private String description;
