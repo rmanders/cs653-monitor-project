@@ -20,11 +20,13 @@ public class DiffieHellmanExchange {
     private DHKey keys = null;
     private BigInteger a = null;
     private BigInteger publicKey = null;
+    private BigInteger secretKey = null;
     private static final Logger logger =
             Logger.getLogger(DiffieHellmanExchange.class);
 
     private DiffieHellmanExchange(DHKey keys) {
         this.keys = keys;
+        generatePublicKey();
     }
 
     // <editor-fold defaultstate="collapsed" desc="getInstance(1)">
@@ -72,7 +74,7 @@ public class DiffieHellmanExchange {
      *
      * @return The generated public key
      */
-    public BigInteger generatePublicKey() {
+    protected final void generatePublicKey() {
         // Generate our exponent, "a"
         SecureRandom secRan = new SecureRandom();
         a = new BigInteger(keySize, secRan);
@@ -80,7 +82,43 @@ public class DiffieHellmanExchange {
         // Generate our public key
         publicKey = keys.getG().modPow(a, keys.getP());
         logger.debug("Generated public key: " + publicKey.toString(32));
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="getSecretKey">
+    /**
+     * Generates the secret key from the public key string sent by the monitor.
+     * The secret key is also then stored in the local secretKey member.
+     *
+     * @param fromMonitor The public key as a string sent by the monitor.
+     *
+     * @return The secret key
+     */
+    public BigInteger getSecretKey(final String fromMonitor) {
+        BigInteger pkey = null;
+        try {
+            pkey = new BigInteger(fromMonitor, 32);
+        } catch (NumberFormatException ex) {
+            logger.error("Unable to convert String[" + fromMonitor
+                    + "] to BigInteger.");
+            return null;
+        }
+        secretKey = pkey.modPow(a, keys.getP());
+        return secretKey;
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="Default get Methods">
+    public BigInteger getA() {
+        return a;
+    }
+
+    public BigInteger getPublicKey() {
         return publicKey;
+    }
+
+    public BigInteger getSecretKey() {
+        return secretKey;
     }
     // </editor-fold>
 }
