@@ -90,36 +90,11 @@ public class ActiveClient extends CommandInterpreter implements Runnable
                 return false;
             }
 
-            // Expect monitor public key in RESULT if encryption is on.
+            // Encryption should automatically be initialized by the message
+            // receiving subsystem
             msgs = receiveMessageGroup();
-            if( ENCRYPTION_ON ) {
-                dir = msgs.getNext(Directive.RESULT);
-                if( dir.getDirective() != Directive.RESULT ) {
-                    logger.error("Expected RESULT directive with monitor's" +
-                            "public key but got not such result:\n " + msgs );
-                    return false;
-                }
-                Command cmdResult = Command.valueOf(dir.getArg());
-                if( cmdResult != Command.IDENT ) {
-                    logger.error("Expected RESULT IDENT directive with " +
-                            "monitor's public key but got Result: " + dir);
-                    return false;
-                }
-                String monPubKey = dir.getPayload().trim();
-                logger.info("Rceived (Monitor's?) public key: " + monPubKey);
-
-                // Initiate Karn Encryption
-                karn = KarnCodec.getInstance(dhe.getSecretKey(monPubKey));
-                if( null == karn ) {
-                    logger.error("FATAL LOGIN ERROR: Unable to instantiate " +
-                            "KarnCodec encryption.");
-                    return false;
-                }
-                // We're go for encryption
-                logger.info("Encryption connection established.");
-            }
-
             dir = msgs.getNext(Directive.REQUIRE);
+
             if (dir.getArg().equals("PASSWORD")) {
                 result = executeCommand(Command.PASSWORD);
                 if (!result) {

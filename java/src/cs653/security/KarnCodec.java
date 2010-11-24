@@ -91,7 +91,8 @@ public class KarnCodec {
      * @param plaintext the plaintext to be padded
      * @return the padded bytes of the plaintext string
      */
-    protected byte[] padString(final String plaintext) {
+    protected byte[] padString(String plaintext) {
+        logger.debug("Padding String: " + plaintext);
         byte ptBytes[] = plaintext.getBytes();
         int ptLen = plaintext.length();
         ByteArrayOutputStream os = new ByteArrayOutputStream();

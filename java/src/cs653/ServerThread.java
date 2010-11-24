@@ -7,6 +7,7 @@ package cs653;
 
 import java.net.Socket;
 import org.apache.log4j.Logger;
+import cs653.security.DiffieHellmanExchange;
 
 /**
  *
@@ -53,14 +54,22 @@ public class ServerThread extends CommandInterpreter implements Runnable {
         // Expect Ident directive
         MessageGroup msgs = receiveMessageGroup();
         Directive dir = msgs.getNext(Directive.REQUIRE);
+        boolean result;
+
         if (!dir.getArg().equals("IDENT")) {
             logger.error("Local Server handshake failed: Expected IDENT, got "
                     + dir.getArg());
             return false;
         }
-
         // Execute ident command
-        boolean result = executeCommand(Command.IDENT);
+        // Setup Encryption if it's turned on and execute the IDENT command
+        if( ENCRYPTION_ON ) {
+            dhe = DiffieHellmanExchange.getInstance();
+            String myPublicKey = dhe.getPublicKey().toString(32);
+            result = executeCommand(Command.IDENT, identity, myPublicKey);
+        } else {
+            result = executeCommand(Command.IDENT);
+        }
         if (!result) {
             logger.error("In doLoginHandshake: Failed to execute IDENT command");
             return false;

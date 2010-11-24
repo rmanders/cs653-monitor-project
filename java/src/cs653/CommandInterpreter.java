@@ -20,6 +20,7 @@ import java.io.FileReader;
 import java.util.Scanner;
 import cs653.security.DiffieHellmanExchange;
 import cs653.security.KarnCodec;
+import java.math.BigInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -187,18 +188,7 @@ public class CommandInterpreter
             List<Directive> dirs = new LinkedList<Directive>();
             Directive dir = null;
 
-            // Handle Encryption
-            String strReceived = bufferIn.readLine().trim();
-            String strPlain = null;
-
-            if( ENCRYPTION_ON && null != karn ) {
-                strPlain = karn.decrypt(strReceived);
-                logger.debug("Received Encrypted Text: " + strReceived);
-                logger.debug("Decrypted to: " + strPlain);
-            } else {
-                strPlain = strReceived;
-                logger.debug("Received Plaintext: " + strPlain);
-            }
+            String strPlain = processMessage(bufferIn.readLine().trim());
             
             while (!strPlain.matches("WAITING(.)*")) {
 
@@ -210,8 +200,7 @@ public class CommandInterpreter
                     logger.debug("Received directive: " + dir);
                     dirs.add(dir);
                 }
-
-                strPlain = bufferIn.readLine().trim();
+                strPlain = processMessage(bufferIn.readLine().trim());
             }
             return new MessageGroup(dirs);
         } catch (java.io.IOException e) {
@@ -221,29 +210,55 @@ public class CommandInterpreter
     }
     // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="processMessage">
     /**
      * This method filters and monitors all incoming messages. A message
      * is considered a string terminated by a newline. This method also handles
-     * the decryption of all messages if Encryption is enabled. In addition, 
-     * it examines each incoming message and if it detects the pattern: 
+     * the decryption of all messages if Encryption is enabled. In addition,
+     * it examines each incoming message and if it detects the pattern:
      * RESULT: IDENT <key>, then it immediately sets up encryption
-     * 
-     * @param message encrypted of plaintext message from somewhere on the 
+     *
+     * @param message encrypted or plaintext message from somewhere on the
      * internets.
-     * 
+     *
      * @return plaintext
      */
-    protected String processMessage( String message ) {
+    protected String processMessage(String message) {
+        logger.debug("Processing Message: " + message);
         String msg = message.trim();
         Matcher matcher = encPattern.matcher(msg);
 
         // if I get this pattern then I know the next messages will be encrypted
-        if( matcher.matches() ) {
+        if (matcher.matches() && null == karn) {
             // assume diffie-hellman has been started
-        }
+            logger.info("Got encyption trigger message! -> " + msg);
+            if (null == dhe) {
+                logger.warn("WARNING: Expecting encrypted messages from "
+                        + "the monitor, but the local instance of Diffie-Hellman"
+                        + " is null, nothing will be decrypted.");
+                return msg;
+            }
 
-        return null;
+            // This message will contain the monitor's public key
+            // From this, Generate the Secret Key
+            BigInteger secretKey = dhe.getSecretKey(matcher.group(3));
+            karn = KarnCodec.getInstance(secretKey);
+            if (null == karn) {
+                logger.error("FATAL ENCRYPTION ERROR: Unable to instantiate "
+                        + "KarnCodec encryption. New messages can't be "
+                        + "decrypted");
+                return msg;
+            }
+            logger.info("Successfully started encryption. "
+                    + "Secure Connection enabled");
+            return msg;
+        } else if (ENCRYPTION_ON && null != karn) {
+            return karn.decrypt(msg);
+        } else {
+            return msg;
+        }
     }
+    // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="sendCommand">
     /**
@@ -270,11 +285,12 @@ public class CommandInterpreter
             message += arg + " ";
         }
         message = message.trim();
+        logger.debug("Sending message: " + message);
 
         // Handle Encrytion
         String sendText = null;
         if( ENCRYPTION_ON && null != karn ) {
-            sendText = karn.encrypt(sendText);
+            sendText = karn.encrypt(message);
         } else {
             sendText = message;
         }

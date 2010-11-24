@@ -79,5 +79,26 @@ public class KarnCodecTest {
         
     }
 
+    @Test
+    public void testKarnEncrypt() {
+        DiffieHellmanExchange client_dh = DiffieHellmanExchange.getInstance();
+        DiffieHellmanExchange server_dh = DiffieHellmanExchange.getInstance();
+        String client_public = client_dh.getPublicKey().toString(32);
+        String server_public = server_dh.getPublicKey().toString(32);
+
+        // Simulate Public key exchange
+        BigInteger server_secret = server_dh.getSecretKey(client_public);
+        BigInteger client_secret = client_dh.getSecretKey(server_public);
+
+        System.out.println("Server's Secret Key: " + server_secret);
+        System.out.println("Client's Secret Key: " + client_secret);
+        assertEquals(server_secret,client_secret);
+
+        // OK so far, now set up KarnCodec for the server and client
+        KarnCodec client_karn = KarnCodec.getInstance(client_secret);
+        KarnCodec server_karn = KarnCodec.getInstance(server_secret);
+
+        String out = client_karn.encrypt("PASSWORD -------\n");
+    }
 
 }
