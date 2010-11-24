@@ -20,6 +20,8 @@ import java.io.FileReader;
 import java.util.Scanner;
 import cs653.security.DiffieHellmanExchange;
 import cs653.security.KarnCodec;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 /**
@@ -40,6 +42,9 @@ public class CommandInterpreter
     protected static int HOST_PORT;
     protected static boolean ENCRYPTION_ON = true;
     protected static final String FILENAME = "c:\\andersr9.txt";
+
+    private static final Pattern encPattern =
+            Pattern.compile("^(RESULT):[\\s]+(IDENT)[\\s]+([a-zA-Z0-9]+)");
 
     protected Socket socConnection = null;
     protected DiffieHellmanExchange dhe = null;
@@ -171,6 +176,8 @@ public class CommandInterpreter
      * decrypting happens here. So I can't decrypt until the setup is complete.
      * <br \><br \>
      * For this reason, I am handling ALL of the encryption setup at this level.
+     * This is done by monitoring the messages and setting up encryption when
+     * triggered by a RESULT IDENT <public key> directive.
      * </p>
      *
      * @return
@@ -194,6 +201,7 @@ public class CommandInterpreter
             }
             
             while (!strPlain.matches("WAITING(.)*")) {
+
                 dir = Directive.getInstance(strPlain);
                 if (null == dir) {
                     logger.warn("Received invalid directive (ignoring): "
@@ -202,6 +210,7 @@ public class CommandInterpreter
                     logger.debug("Received directive: " + dir);
                     dirs.add(dir);
                 }
+
                 strPlain = bufferIn.readLine().trim();
             }
             return new MessageGroup(dirs);
@@ -211,6 +220,30 @@ public class CommandInterpreter
         }
     }
     // </editor-fold>
+
+    /**
+     * This method filters and monitors all incoming messages. A message
+     * is considered a string terminated by a newline. This method also handles
+     * the decryption of all messages if Encryption is enabled. In addition, 
+     * it examines each incoming message and if it detects the pattern: 
+     * RESULT: IDENT <key>, then it immediately sets up encryption
+     * 
+     * @param message encrypted of plaintext message from somewhere on the 
+     * internets.
+     * 
+     * @return plaintext
+     */
+    protected String processMessage( String message ) {
+        String msg = message.trim();
+        Matcher matcher = encPattern.matcher(msg);
+
+        // if I get this pattern then I know the next messages will be encrypted
+        if( matcher.matches() ) {
+            // assume diffie-hellman has been started
+        }
+
+        return null;
+    }
 
     // <editor-fold defaultstate="collapsed" desc="sendCommand">
     /**
