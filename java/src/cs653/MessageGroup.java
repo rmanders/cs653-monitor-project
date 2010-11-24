@@ -64,4 +64,14 @@ public class MessageGroup
         return count;
     }
 
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("MESSAGE GROUP\n");
+        for( Directive dir : messages ) {
+            sb.append("\t").append(dir).append("\n");
+        }
+        return sb.toString();
+    }
+
 }

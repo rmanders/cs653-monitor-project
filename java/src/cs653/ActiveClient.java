@@ -7,6 +7,9 @@ package cs653;
 
 import java.util.NoSuchElementException;
 import org.apache.log4j.Logger;
+import cs653.security.DiffieHellmanExchange;
+import cs653.security.KarnCodec;
+import java.math.BigInteger;
 
 /**
  *
@@ -14,9 +17,8 @@ import org.apache.log4j.Logger;
  */
 public class ActiveClient extends CommandInterpreter implements Runnable
 {
-    private final Logger logger =
-            Logger.getLogger(ActiveClient.class);
-    private Thread thread = null;
+    private final Logger logger = Logger.getLogger(ActiveClient.class);
+    private Thread runner = null;
 
     public ActiveClient( String monitorHost, int monitorPort, int hostPort,
             String identity, String password ) {
@@ -28,10 +30,10 @@ public class ActiveClient extends CommandInterpreter implements Runnable
 
     // <editor-fold defaultstate="collapsed" desc="launch">
     public void launch() {
-        if (null == thread) {
-            thread = new Thread(this);
+        if (null == runner) {
+            runner = new Thread(this);
         }
-        thread.start();
+        runner.start();
     }
     // </editor-fold>
 
@@ -40,7 +42,7 @@ public class ActiveClient extends CommandInterpreter implements Runnable
 
         logger.debug("Entering run function");
 
-        while( Thread.currentThread() == thread ) {
+        while( Thread.currentThread() == runner ) {
 
             logger.debug("Opening Client connection to Monitor");
             openConnection(MONITORHOST, MONITORPORT);
@@ -64,7 +66,7 @@ public class ActiveClient extends CommandInterpreter implements Runnable
         boolean result;
         try {
 
-            // Send Identity
+            // Expect a request for IDENT
             msgs = receiveMessageGroup();
             dir = msgs.getNext(Directive.REQUIRE);
 
@@ -73,16 +75,51 @@ public class ActiveClient extends CommandInterpreter implements Runnable
                         + dir.getArg());
                 return false;
             }
-            result = executeCommand(Command.IDENT);
+
+            // Setup Encryption if it's turned on and execute the IDENT command
+            if( ENCRYPTION_ON ) {
+                dhe = DiffieHellmanExchange.getInstance();
+                String myPublicKey = dhe.getPublicKey().toString(32);
+                result = executeCommand(Command.IDENT, identity, myPublicKey);
+            } else {
+                result = executeCommand(Command.IDENT);
+            }
+
             if (!result) {
                 logger.error("Failed to execute IDENT command.");
                 return false;
             }
 
-            // Send Password or alive
+            // Expect monitor public key in RESULT if encryption is on.
             msgs = receiveMessageGroup();
-            dir = msgs.getNext(Directive.REQUIRE);
+            if( ENCRYPTION_ON ) {
+                dir = msgs.getNext(Directive.RESULT);
+                if( dir.getDirective() != Directive.RESULT ) {
+                    logger.error("Expected RESULT directive with monitor's" +
+                            "public key but got not such result:\n " + msgs );
+                    return false;
+                }
+                Command cmdResult = Command.valueOf(dir.getArg());
+                if( cmdResult != Command.IDENT ) {
+                    logger.error("Expected RESULT IDENT directive with " +
+                            "monitor's public key but got Result: " + dir);
+                    return false;
+                }
+                String monPubKey = dir.getPayload().trim();
+                logger.info("Rceived (Monitor's?) public key: " + monPubKey);
 
+                // Initiate Karn Encryption
+                karn = KarnCodec.getInstance(dhe.getSecretKey(monPubKey));
+                if( null == karn ) {
+                    logger.error("FATAL LOGIN ERROR: Unable to instantiate " +
+                            "KarnCodec encryption.");
+                    return false;
+                }
+                // We're go for encryption
+                logger.info("Encryption connection established.");
+            }
+
+            dir = msgs.getNext(Directive.REQUIRE);
             if (dir.getArg().equals("PASSWORD")) {
                 result = executeCommand(Command.PASSWORD);
                 if (!result) {

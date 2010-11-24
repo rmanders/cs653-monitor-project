@@ -18,6 +18,8 @@ import org.apache.log4j.Logger;
 import java.io.File;
 import java.io.FileReader;
 import java.util.Scanner;
+import cs653.security.DiffieHellmanExchange;
+import cs653.security.KarnCodec;
 
 
 /**
@@ -36,11 +38,15 @@ public class CommandInterpreter
     protected static String MONITORHOST = null;
     protected static int MONITORPORT;
     protected static int HOST_PORT;
+    protected static boolean ENCRYPTION_ON = true;
     protected static final String FILENAME = "c:\\andersr9.txt";
 
     protected Socket socConnection = null;
-    private final String identity;
-    private PrintWriter bufferOut = null;;
+    protected DiffieHellmanExchange dhe = null;
+    protected KarnCodec karn = null;
+    protected final String identity;
+    
+    private PrintWriter bufferOut = null;
     private BufferedReader bufferIn = null;
     private final Logger logger = Logger.getLogger(CommandInterpreter.class);
 
@@ -151,14 +157,42 @@ public class CommandInterpreter
      *
      * NOTE: This method blocks until a "WAITING" directive is received.
      *
+     * <p>
+     * NOTE ON ENCRYPTION: One problem with my architecture and implementing
+     * encryption is that if I send the monitor an indication that I want
+     * encryption, it will send back a message group that is partially
+     * encrypted. That is, it will send me it's public key in plain text but
+     * then the rest of that message group, including the REQUIRE and WAITING
+     * directives will be encrypted. This poses a problem since I originally
+     * handled the setup of encryption at a higher level (in the login
+     * handshake). By handling it that way, I can't avoid getting a partially
+     * encrypted message that I can't decrypt. This happens because even though
+     * the encryption setup happens at a higher level, the actual encrypting and
+     * decrypting happens here. So I can't decrypt until the setup is complete.
+     * <br \><br \>
+     * For this reason, I am handling ALL of the encryption setup at this level.
+     * </p>
+     *
      * @return
      */
     protected MessageGroup receiveMessageGroup() {
         try {
             List<Directive> dirs = new LinkedList<Directive>();
             Directive dir = null;
-            String strPlain = bufferIn.readLine().trim();
-            //logger.debug(strPlain);
+
+            // Handle Encryption
+            String strReceived = bufferIn.readLine().trim();
+            String strPlain = null;
+
+            if( ENCRYPTION_ON && null != karn ) {
+                strPlain = karn.decrypt(strReceived);
+                logger.debug("Received Encrypted Text: " + strReceived);
+                logger.debug("Decrypted to: " + strPlain);
+            } else {
+                strPlain = strReceived;
+                logger.debug("Received Plaintext: " + strPlain);
+            }
+            
             while (!strPlain.matches("WAITING(.)*")) {
                 dir = Directive.getInstance(strPlain);
                 if (null == dir) {
@@ -193,7 +227,7 @@ public class CommandInterpreter
             logger.error("Too few arguments for command: [" + command + "]");
             return 0;
         }
-        if (args.length > command.getMinArgs()) {
+        if (args.length > command.getMaxArgs()) {
             logger.warn("Argument count exceeds max arguments for command: ["
                     + command + "]");
         }
@@ -204,7 +238,15 @@ public class CommandInterpreter
         }
         message = message.trim();
 
-        bufferOut.println(message);
+        // Handle Encrytion
+        String sendText = null;
+        if( ENCRYPTION_ON && null != karn ) {
+            sendText = karn.encrypt(sendText);
+        } else {
+            sendText = message;
+        }
+        
+        bufferOut.println(sendText);
         logger.debug("Sent command: " + message);
 
         return 1;
