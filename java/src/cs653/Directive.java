@@ -13,6 +13,13 @@ import java.util.Map;
 /**
  *
  * @author Ryan Anderson
+ *
+ * This is a wrapper class for a directive that is received from the monitor.
+ * The getInstance method is a Directive object factory that takes a single line
+ * of plaintext (assumed to come from the monitor) and creates the directive
+ * object from that text. If the received text is not a true directive, the
+ * getInstance method simply returns null.
+ *
  */
 public class Directive
 {
@@ -22,21 +29,35 @@ public class Directive
     public static final int COMMENT = 3;
     public static final int RESULT = 4;
     public static final int PARTICIPANT_PASSWORD_CHECKSUM = 5;
+    public static final int TRANSFER_REQUEST = 6;
     public static final Map<String, Integer> TOKENS;
+    public static final Map<String, String> PATTERNS;
     public static final String[] NAMES = {
     "WAITING","REQUIRE","COMMAND_ERROR","COMMENT","RESULT",
-    "PARTICIPANT_PASSWORD_CHECKSUM"};
+    "PARTICIPANT_PASSWORD_CHECKSUM","TRANSFER_REQUEST"};
 
     static
     {
-        Map<String, Integer> mi = new HashMap<String,Integer>(6);
+        Map<String, Integer> mi = new HashMap<String,Integer>(8);
         mi.put("WAITING", 0);
         mi.put("REQUIRE", 1);
         mi.put("COMMAND_ERROR", 2);
         mi.put("COMMENT", 3);
         mi.put("RESULT", 4);
         mi.put("PARTICIPANT_PASSWORD_CHECKSUM", 5);
+        mi.put("TRANSFER_REQUEST", 6);
         TOKENS = Collections.unmodifiableMap(mi);
+
+        // Maps the directive name to it's regex pattern after being trimmed
+        Map<String, String> pt = new HashMap<String,String>(8);
+        pt.put("WAITING", "(WAITING:)");
+        pt.put("REQUIRE", "^(REQUIRE:)[\\s]+([\\S]+)$");
+        pt.put("COMMAND_ERROR", "^(COMMAND_ERROR:)[\\s](.*)");
+        pt.put("COMMENT", "^(COMMENT:)[\\s](.*)");
+        pt.put("RESULT", "^(RESULT:)[\\s]" + Command.COMMAND_PATTERNS + "(.*)");
+        pt.put("PARTICIPANT_PASSWORD_CHECKSUM", "");
+        pt.put("TRANSFER_REQUEST", "");
+        PATTERNS = Collections.unmodifiableMap(pt);
     }
 
     private final int directive;
@@ -133,6 +154,10 @@ public class Directive
                 }
                 return new Directive(message, PARTICIPANT_PASSWORD_CHECKSUM,
                         arg, null);
+            }
+            case (TRANSFER_REQUEST):
+            {
+
             }
             default:
             {

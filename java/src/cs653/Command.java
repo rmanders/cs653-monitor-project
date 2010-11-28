@@ -24,6 +24,11 @@ public enum Command
     RANDOM_PARTICIPANT_HOST_PORT("RANDOM_PARTICIPANT_HOST_PORT",0,0),
     PARTICIPANT_HOST_PORT("PARTICIPANT_HOST_PORT",1,1);
 
+    public static final String COMMAND_PATTERNS =
+            "(IDENT|QUIT|PASSWORD|CHANGE_PASSWORD|HOST_PORT|SIGN_OFF|ALIVE|"
+            + "GET_GAME_IDENTS|RANDOM_PARTICIPANT_HOST_PORT|"
+            + "PARTICIPANT_HOST_PORT)";
+
     private String commandString;
     private int minArgs;
     private int maxArgs;
