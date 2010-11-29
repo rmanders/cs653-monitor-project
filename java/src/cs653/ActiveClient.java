@@ -26,6 +26,7 @@ public class ActiveClient extends CommandInterpreter implements Runnable
 
         //TODO: Remove this from hard code
         HOSTNAME = "localhost";
+
     }
 
     // <editor-fold defaultstate="collapsed" desc="launch">

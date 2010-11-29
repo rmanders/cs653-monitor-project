@@ -23,56 +23,63 @@ import java.util.Map;
  */
 public class Directive
 {
+    // These are the Implemented directives
     public static final int WAITING = 0;
     public static final int REQUIRE = 1;
     public static final int COMMAND_ERROR = 2;
     public static final int COMMENT = 3;
     public static final int RESULT = 4;
     public static final int PARTICIPANT_PASSWORD_CHECKSUM = 5;
-    public static final int TRANSFER_REQUEST = 6;
+    public static final int TRANSFER = 6;
+
+    // Members used to help determine proper directivbe structure
     public static final Map<String, Integer> TOKENS;
-    public static final Map<String, String> PATTERNS;
     public static final String[] NAMES = {
     "WAITING","REQUIRE","COMMAND_ERROR","COMMENT","RESULT",
-    "PARTICIPANT_PASSWORD_CHECKSUM","TRANSFER_REQUEST"};
+    "PARTICIPANT_PASSWORD_CHECKSUM","TRANSFER"};
 
     static
     {
-        Map<String, Integer> mi = new HashMap<String,Integer>(8);
+        Map<String, Integer> mi = new HashMap<String,Integer>(7);
         mi.put("WAITING", 0);
         mi.put("REQUIRE", 1);
         mi.put("COMMAND_ERROR", 2);
         mi.put("COMMENT", 3);
         mi.put("RESULT", 4);
         mi.put("PARTICIPANT_PASSWORD_CHECKSUM", 5);
-        mi.put("TRANSFER_REQUEST", 6);
+        mi.put("TRANSFER", 6);
         TOKENS = Collections.unmodifiableMap(mi);
-
-        // Maps the directive name to it's regex pattern after being trimmed
-        Map<String, String> pt = new HashMap<String,String>(8);
-        pt.put("WAITING", "(WAITING:)");
-        pt.put("REQUIRE", "^(REQUIRE:)[\\s]+([\\S]+)$");
-        pt.put("COMMAND_ERROR", "^(COMMAND_ERROR:)[\\s](.*)");
-        pt.put("COMMENT", "^(COMMENT:)[\\s](.*)");
-        pt.put("RESULT", "^(RESULT:)[\\s]" + Command.COMMAND_PATTERNS + "(.*)");
-        pt.put("PARTICIPANT_PASSWORD_CHECKSUM", "");
-        pt.put("TRANSFER_REQUEST", "");
-        PATTERNS = Collections.unmodifiableMap(pt);
     }
 
     private final int directive;
+    private final DirectiveType directiveType;
     private final String arg;
     private final String payload;
     private final String message;
 
-    private Directive(String message, int directive, String arg, String payload)
+    private Directive(String message, int directive, String arg, String payload,
+            DirectiveType directiveType)
     {
         this.message = message;
         this.directive = directive;
         this.arg = arg;
         this.payload = payload;
+        this.directiveType = directiveType;
     }
 
+    /**
+     *
+     * Creates a new Directive object from the message parameter. The message
+     * parameter is expected to be a directive from the monitor. This method
+     * attempts to parse that message, wraps a Directive object around it, and
+     * returns that Directive object. If the message does not match the pattern
+     * of any known directives, null is returned.
+     *
+     * @param message A single-line string from the monitor that is expected to
+     * be a directive.
+     *
+     * @return A {@link Directive} object or 
+     */
     public static Directive getInstance( final String message )
     {
         StringTokenizer st = new StringTokenizer(message.trim(), " :");
@@ -94,7 +101,7 @@ public class Directive
         {
             case (WAITING):
             {
-                return new Directive(message, WAITING, null, null);
+                return new Directive(message, WAITING, null, null, DirectiveType.WAITING);
             }
             case (REQUIRE):
             {
@@ -104,7 +111,7 @@ public class Directive
                     System.out.println("Invalid Argrument on REQUIRE: " + arg);
                     return null;
                 }
-                return new Directive(message, REQUIRE, arg, null);
+                return new Directive(message, REQUIRE, arg, null,DirectiveType.REQUIRE);
             }
             case (COMMAND_ERROR):
             {
@@ -114,7 +121,7 @@ public class Directive
                     payload = message.replaceFirst("COMMAND_ERROR([: ])*", "")
                             .trim();
                 }
-                return new Directive(message, COMMAND_ERROR, null, payload);
+                return new Directive(message, COMMAND_ERROR, null, payload,DirectiveType.COMMAND_ERROR);
             }
             case (COMMENT):
             {
@@ -124,7 +131,7 @@ public class Directive
                     payload = message.replaceFirst("COMMENT([: ])*", "")
                             .trim();
                 }
-                return new Directive(message, COMMENT, null, payload);
+                return new Directive(message, COMMENT, null, payload, DirectiveType.COMMENT);
             }
             case (RESULT):
             {
@@ -141,7 +148,7 @@ public class Directive
                             message.indexOf(arg) + arg.length()).trim();
                 }
 
-                return new Directive(message, RESULT, arg, payload);
+                return new Directive(message, RESULT, arg, payload, DirectiveType.RESULT);
             }
             case (PARTICIPANT_PASSWORD_CHECKSUM):
             {
@@ -153,9 +160,9 @@ public class Directive
                     return null;
                 }
                 return new Directive(message, PARTICIPANT_PASSWORD_CHECKSUM,
-                        arg, null);
+                        arg, null, DirectiveType.PARTICIPANT_PASSWORD_CHECKSUM);
             }
-            case (TRANSFER_REQUEST):
+            case (TRANSFER):
             {
 
             }
