@@ -69,7 +69,7 @@ public class ActiveClient extends CommandInterpreter implements Runnable
 
             // Expect a request for IDENT
             msgs = receiveMessageGroup();
-            dir = msgs.getNext(Directive.REQUIRE);
+            dir = msgs.getNext(DirectiveType.REQUIRE);
 
             if (!dir.getArg().equals("IDENT")) {
                 logger.error("Login failed: Expected IDENT, got: "
@@ -94,7 +94,7 @@ public class ActiveClient extends CommandInterpreter implements Runnable
             // Encryption should automatically be initialized by the message
             // receiving subsystem
             msgs = receiveMessageGroup();
-            dir = msgs.getNext(Directive.REQUIRE);
+            dir = msgs.getNext(DirectiveType.REQUIRE);
 
             if (dir.getArg().equals("PASSWORD")) {
                 result = executeCommand(Command.PASSWORD);
@@ -104,13 +104,13 @@ public class ActiveClient extends CommandInterpreter implements Runnable
                 }
                 // Expect cookie
                 msgs = receiveMessageGroup();
-                dir = msgs.getNext(Directive.RESULT);
+                dir = msgs.getNext(DirectiveType.RESULT);
                 Command cmd = Command.valueOf(dir.getArg());
                 if (cmd != Command.PASSWORD) {
                     logger.error("Login failed: expected password result, got: "
                             + dir);
                 }
-                COOKIE = dir.getPayload();
+                COOKIE = dir.getArg(1);
                 this.saveConfig(PASSWORD, COOKIE);
             } else if (dir.getArg().equals("ALIVE")) {
                 result = executeCommand(Command.ALIVE);
@@ -127,7 +127,7 @@ public class ActiveClient extends CommandInterpreter implements Runnable
 
             // Handle Host port
             msgs.reset();
-            dir = msgs.getNext(Directive.REQUIRE);
+            dir = msgs.getNext(DirectiveType.REQUIRE);
             if (dir.getArg().equals("HOST_PORT")) {
                 result = executeCommand(Command.HOST_PORT);
                 if (!result) {

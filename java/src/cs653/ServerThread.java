@@ -53,7 +53,7 @@ public class ServerThread extends CommandInterpreter implements Runnable {
 
         // Expect Ident directive
         MessageGroup msgs = receiveMessageGroup();
-        Directive dir = msgs.getNext(Directive.REQUIRE);
+        Directive dir = msgs.getNext(DirectiveType.REQUIRE);
         boolean result;
 
         if (!dir.getArg().equals("IDENT")) {
@@ -77,7 +77,7 @@ public class ServerThread extends CommandInterpreter implements Runnable {
 
         // Expect Alive directive
         msgs = receiveMessageGroup();
-        dir = msgs.getNext(Directive.REQUIRE);
+        dir = msgs.getNext(DirectiveType.REQUIRE);
         if (!dir.getArg().equals("ALIVE")) {
             logger.error("Local Server handshake failed: Expected ALIVE, got "
                     + dir.getArg());
@@ -93,7 +93,7 @@ public class ServerThread extends CommandInterpreter implements Runnable {
 
         // Expect QUIT
         msgs = receiveMessageGroup();
-        dir = msgs.getNext(Directive.REQUIRE);
+        dir = msgs.getNext(DirectiveType.REQUIRE);
         if (!dir.getArg().equals("QUIT")) {
             logger.error("Local Server handshake failed: Expected QUIT, got "
                     + dir.getArg());

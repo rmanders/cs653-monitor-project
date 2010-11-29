@@ -5,7 +5,9 @@
 
 package cs653;
 
-import java.util.StringTokenizer;
+import org.apache.log4j.Logger;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,48 +25,41 @@ import java.util.Map;
  */
 public class Directive
 {
-    // These are the Implemented directives
-    public static final int WAITING = 0;
-    public static final int REQUIRE = 1;
-    public static final int COMMAND_ERROR = 2;
-    public static final int COMMENT = 3;
-    public static final int RESULT = 4;
-    public static final int PARTICIPANT_PASSWORD_CHECKSUM = 5;
-    public static final int TRANSFER = 6;
 
-    // Members used to help determine proper directivbe structure
-    public static final Map<String, Integer> TOKENS;
-    public static final String[] NAMES = {
-    "WAITING","REQUIRE","COMMAND_ERROR","COMMENT","RESULT",
-    "PARTICIPANT_PASSWORD_CHECKSUM","TRANSFER"};
+    /** Used to help determine proper directive structure */
+    private static final Map<String, DirectiveType> TOKENS;
+
+    /** The general regex pattern for matching a directive */
+    private static final Pattern DIRECTIVE_PATTERN
+            = Pattern.compile("[\\s]*"
+            + DirectiveType.ALL_DIRECTIVES + ":(.*)");
+
+    /** Logs messages for the class */
+    private static final Logger logger = Logger.getLogger(Directive.class);
 
     static
     {
-        Map<String, Integer> mi = new HashMap<String,Integer>(7);
-        mi.put("WAITING", 0);
-        mi.put("REQUIRE", 1);
-        mi.put("COMMAND_ERROR", 2);
-        mi.put("COMMENT", 3);
-        mi.put("RESULT", 4);
-        mi.put("PARTICIPANT_PASSWORD_CHECKSUM", 5);
-        mi.put("TRANSFER", 6);
+        Map<String, DirectiveType> mi = new HashMap<String,DirectiveType>(7);
+        mi.put("WAITING", DirectiveType.WAITING);
+        mi.put("REQUIRE", DirectiveType.REQUIRE);
+        mi.put("COMMAND_ERROR", DirectiveType.COMMAND_ERROR);
+        mi.put("COMMENT", DirectiveType.COMMENT);
+        mi.put("RESULT", DirectiveType.RESULT);
+        mi.put("PARTICIPANT_PASSWORD_CHECKSUM", 
+                DirectiveType.PARTICIPANT_PASSWORD_CHECKSUM);
+        mi.put("TRANSFER", DirectiveType.TRANSFER);
         TOKENS = Collections.unmodifiableMap(mi);
     }
 
-    private final int directive;
-    private final DirectiveType directiveType;
-    private final String arg;
-    private final String payload;
     private final String message;
+    private final DirectiveType directiveType;
+    private final String args[];
 
-    private Directive(String message, int directive, String arg, String payload,
-            DirectiveType directiveType)
+    private Directive(String message, DirectiveType directiveType, String args[])
     {
         this.message = message;
-        this.directive = directive;
-        this.arg = arg;
-        this.payload = payload;
         this.directiveType = directiveType;
+        this.args = args;
     }
 
     /**
@@ -81,128 +76,82 @@ public class Directive
      * @return A {@link Directive} object or 
      */
     public static Directive getInstance( final String message )
-    {
-        StringTokenizer st = new StringTokenizer(message.trim(), " :");
-        if( !st.hasMoreTokens() )
+    {        
+        String trimmed = message.trim();
+        Matcher matcher = DIRECTIVE_PATTERN.matcher(trimmed);
+
+        if( !matcher.matches() )
         {
-            System.out.println("No tokens in message string");
+            logger.warn("Message string [" + message +
+                    "]does not match any known directives: ");
             return null;
         }
-        String cmd = st.nextToken().trim();
-        if( !TOKENS.containsKey(cmd) )
+
+        final String dir = matcher.group(1);
+        if( !TOKENS.containsKey(dir) )
         {
+            logger.error("Message [" + message + "] matched general directive "
+                    + "pattern but Directive token [" + dir + "] was not "
+                    + "found in known directives token patterns");
             return null;
         }
 
-        String arg;
-        String payload;
+        // Now try to match the message to the specific type of directive and
+        // make sure the message fits that directive's pattern
+        DirectiveType dirType = TOKENS.get(dir);
+        Matcher dirMatcher = dirType.getPattern().matcher(trimmed);
 
-        switch(TOKENS.get(cmd))
-        {
-            case (WAITING):
-            {
-                return new Directive(message, WAITING, null, null, DirectiveType.WAITING);
-            }
-            case (REQUIRE):
-            {
-                arg = st.hasMoreTokens() ? st.nextToken().trim() : null;
-                if( !isValid(arg) )
-                {
-                    System.out.println("Invalid Argrument on REQUIRE: " + arg);
-                    return null;
-                }
-                return new Directive(message, REQUIRE, arg, null,DirectiveType.REQUIRE);
-            }
-            case (COMMAND_ERROR):
-            {
-                payload = null;
-                if( st.hasMoreTokens() )
-                {
-                    payload = message.replaceFirst("COMMAND_ERROR([: ])*", "")
-                            .trim();
-                }
-                return new Directive(message, COMMAND_ERROR, null, payload,DirectiveType.COMMAND_ERROR);
-            }
-            case (COMMENT):
-            {
-                payload = null;
-                if( st.hasMoreTokens() )
-                {
-                    payload = message.replaceFirst("COMMENT([: ])*", "")
-                            .trim();
-                }
-                return new Directive(message, COMMENT, null, payload, DirectiveType.COMMENT);
-            }
-            case (RESULT):
-            {
-                arg = st.hasMoreTokens() ? st.nextToken().trim() : null;
-                if( !isValid(arg) )
-                {
-                    System.out.println("Invalid Argrument on RESULT: " + arg);
-                    return null;
-                }
-                payload = null;
-                if( st.hasMoreTokens() )
-                {
-                    payload = message.substring(
-                            message.indexOf(arg) + arg.length()).trim();
-                }
-
-                return new Directive(message, RESULT, arg, payload, DirectiveType.RESULT);
-            }
-            case (PARTICIPANT_PASSWORD_CHECKSUM):
-            {
-                arg = st.hasMoreTokens() ? st.nextToken().trim() : null;
-                if( !isValid(arg) )
-                {
-                    System.out.println("Invalid Argrument on " +
-                            "PARTICIPANT_PASSWORD_CHECKSUM: " + arg);
-                    return null;
-                }
-                return new Directive(message, PARTICIPANT_PASSWORD_CHECKSUM,
-                        arg, null, DirectiveType.PARTICIPANT_PASSWORD_CHECKSUM);
-            }
-            case (TRANSFER):
-            {
-
-            }
-            default:
-            {
-                return null;
-            }
+        if( !dirMatcher.matches() ) {
+            logger.warn("The message: [" + message + "] did not match the "
+                    + "directive pattern for [" + dirType + "].");
+            return null;
         }
-    }
 
-    private static boolean isValid(final String str)
-    {
-        if( null == str || str.trim().length() == 0)
-        {
-            return false;
+        // Get all the directive arguments
+        String args[] = new String[dirMatcher.groupCount()-1];
+        for( int i=0; i<dirMatcher.groupCount()-1; i++ ) {
+            args[i] = (String)dirMatcher.group(i+2);
         }
-        return true;
+
+        return new Directive( trimmed, dirType, args );
     }
 
     public String getArg()
     {
-        return arg;
+        if( args.length > 0 ) {
+            return args[0];
+        } else {
+            return "";
+        }
     }
 
-    public int getDirective()
-    {
-        return directive;
+    public String getArg( int i ) {
+        if( i >= 0 && i < args.length ) {
+            return args[i];
+        } else {
+            return "";
+        }
     }
 
-    public String getPayload()
-    {
-        return payload;
+    public int getArgCount() {
+        return args.length;
     }
+
+    public DirectiveType getDirectiveType()
+    {
+        return directiveType;
+    }
+
 
     @Override
     public String toString()
     {
-        return "{" + String.valueOf(this.directive) + "}[" +
-                NAMES[this.directive] + "] (" + this.arg + ") " +
-                this.payload;
+        StringBuilder out = new StringBuilder();
+        out.append("{").append(this.directiveType).append("}");
+        for( String arg : this.args ) {
+            out.append("[").append(arg).append("] ");
+        }
+        return out.toString();
     }
 
 

@@ -29,9 +29,9 @@ public class MessageGroup
         return iter.next();
     }
 
-    public Directive getNext( int directive ) {
+    public Directive getNext( DirectiveType directive ) {
         Directive d = iter.next();
-        while( d.getDirective() != directive ) {
+        while( d.getDirectiveType() != directive ) {
             d = iter.next();
         }
         return d;
@@ -45,19 +45,19 @@ public class MessageGroup
         iter = messages.iterator();
     }
 
-    public boolean hasDirective( int directive ) {
+    public boolean hasDirective( DirectiveType directive ) {
         for( Directive d : messages ) {
-            if( d.getDirective() == directive ) {
+            if( d.getDirectiveType() == directive ) {
                 return true;
             }
         }
         return false;
     }
 
-    public int getCountOfDirective( int directive ) {
+    public int getCountOfDirective( DirectiveType directive ) {
         int count = 0;
         for( Directive d : messages ) {
-            if( d.getDirective() == directive ) {
+            if( d.getDirectiveType() == directive ) {
                 count++;
             }
         }

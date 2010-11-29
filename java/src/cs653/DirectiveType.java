@@ -65,4 +65,9 @@ public enum DirectiveType {
         return pattern;
     }
 
+    @Override
+    public String toString() {
+        return this.name;
+    }
+
 }
