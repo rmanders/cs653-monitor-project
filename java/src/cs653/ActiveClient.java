@@ -8,6 +8,7 @@ package cs653;
 import java.util.NoSuchElementException;
 import org.apache.log4j.Logger;
 import cs653.security.DiffieHellmanExchange;
+import java.net.Socket;
 
 /**
  *
@@ -39,21 +40,27 @@ public class ActiveClient extends CommandInterpreter implements Runnable
     // <editor-fold defaultstate="collapsed" desc="run">
     public void run() {
 
-        logger.debug("Entering run function");
+        logger.debug("Entering Active Client run function");
 
         while( Thread.currentThread() == runner ) {
 
-            logger.debug("Opening Client connection to Monitor");
-            openConnection(MONITORHOST, MONITORPORT);
+            try {
+                logger.debug("Opening Client connection to Monitor");
+                socConnection = new Socket(MONITORHOST, MONITORPORT);
+                initConnectionIO();
 
-            logger.debug("Calling client login function");
-            boolean result = login();
+                logger.debug("Calling client login function");
+                boolean result = login();
 
-            logger.debug("Login Result: " + result);
+                logger.debug("Login Result: " + result);
 
-            logger.debug("Closing client connection");
-            closeConnection();
-            break;
+                logger.debug("Closing client connection");
+                socConnection.close();
+
+                runner = null;
+            } catch (Exception ex ) {
+                logger.error("FATAL ERROR: " + ex);
+            }
         }
     }
     // </editor-fold>

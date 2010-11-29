@@ -19,8 +19,9 @@ public class TestMain {
         ActiveClient client = new ActiveClient("localhost",8150,8250,"andersr9","password");
         Server server = new Server(8250,"andersr9","password");
         server.startServer();
-        client.openConnection("localhost", 8150);
-        client.login();
-        client.closeConnection();
+        //client.openConnection("localhost", 8150);
+        //client.login();
+        //client.closeConnection();
+        client.launch();
     }
 }
