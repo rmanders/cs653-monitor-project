@@ -101,4 +101,11 @@ public class KarnCodecTest {
         String out = client_karn.encrypt("PASSWORD -------\n");
     }
 
+    @Test
+    public void testQuickSha() {
+        String input = "password";
+        String exp = "112bb791304791ddcf692e29fd5cf149b35fea37";
+        String output = KarnCodec.quickSha(input);
+        assertEquals(exp,output);
+    }
 }

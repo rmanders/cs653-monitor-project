@@ -8,6 +8,7 @@ package cs653;
 import java.net.Socket;
 import org.apache.log4j.Logger;
 import cs653.security.DiffieHellmanExchange;
+import cs653.security.KarnCodec;
 
 /**
  *
@@ -50,15 +51,35 @@ public class ServerThread extends CommandInterpreter implements Runnable {
 
     // <editor-fold defaultstate="collapsed" desc="doLoginHandshake">
     public boolean doLoginHandshake() {
+        
+        // Receive the first message group
+        MessageGroup msgs = receiveMessageGroup();
+
+        // First check for password checksum
+        Directive dir =
+                msgs.getNext(DirectiveType.PARTICIPANT_PASSWORD_CHECKSUM);
+        if( !checkDirective(dir,DirectiveType.PARTICIPANT_PASSWORD_CHECKSUM) ) {
+            return false;
+        }
+        if( !KarnCodec.quickSha(PASSWORD).equals(dir.getArg(0)) ) {
+            logger.warn(" The Participant Password Checksum from the foreign "
+                    + "connection did not match. Rejecting login.");
+            return false;
+        }
 
         // Expect Ident directive
-        MessageGroup msgs = receiveMessageGroup();
-        Directive dir = msgs.getNext(DirectiveType.REQUIRE);
+        msgs.reset();
+        dir = msgs.getNext(DirectiveType.REQUIRE);
         boolean result;
 
+        if( null == dir ) {
+            logger.error("Expected a REQUIRE directive but none found in "
+                    + "message group.");
+            return false;
+        }
         if (!dir.getArg().equals("IDENT")) {
             logger.error("Local Server handshake failed: Expected IDENT, got "
-                    + dir.getArg());
+                    + dir.getArg() );
             return false;
         }
         // Execute ident command
@@ -126,4 +147,22 @@ public class ServerThread extends CommandInterpreter implements Runnable {
         logger.debug("Exiting Local Server thread");
     }
 
+    private boolean checkDirective(Directive dir, DirectiveType expType,
+            String expArg0) {
+         if( null == dir ) {
+            logger.error("Expected a " + expType + " directive but none found "
+                    + "in message group.");
+            return false;
+         }
+         if( null != expArg0 && !dir.getArg().equals(expArg0)) {
+             logger.error("Local Server handshake failed: Expected " + expArg0
+                     + " got " + dir.getArg() );
+             return false;
+         }
+         return true;
+    }
+
+    private boolean checkDirective(Directive dir, DirectiveType expType) {
+        return checkDirective(dir, expType, null);
+    }
 }

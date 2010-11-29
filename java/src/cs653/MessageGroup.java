@@ -29,13 +29,25 @@ public class MessageGroup
         return iter.next();
     }
 
-    public Directive getNext( DirectiveType directive ) {
-        Directive d = iter.next();
-        while( d.getDirectiveType() != directive ) {
-            d = iter.next();
+    // <editor-fold defaultstate="collapsed" desc="getNext">
+    /**
+     *
+     * Gets the next directive of DirectiveType or null if it doesn't exist
+     *
+     * @param directiveType The directive type to search for
+     *
+     * @return The next instance of Directive or null if none exist.
+     */
+    public Directive getNext(DirectiveType directiveType) {
+        while (iter.hasNext()) {
+            Directive dir = iter.next();
+            if (dir.getDirectiveType() == directiveType) {
+                return dir;
+            }
         }
-        return d;
+        return null;
     }
+    // </editor-fold>
 
     public boolean hasNext() {
         return iter.hasNext();

@@ -8,8 +8,6 @@ package cs653;
 import java.util.NoSuchElementException;
 import org.apache.log4j.Logger;
 import cs653.security.DiffieHellmanExchange;
-import cs653.security.KarnCodec;
-import java.math.BigInteger;
 
 /**
  *
@@ -128,7 +126,7 @@ public class ActiveClient extends CommandInterpreter implements Runnable
             // Handle Host port
             msgs.reset();
             dir = msgs.getNext(DirectiveType.REQUIRE);
-            if (dir.getArg().equals("HOST_PORT")) {
+            if (null != dir && dir.getArg().equals("HOST_PORT")) {
                 result = executeCommand(Command.HOST_PORT);
                 if (!result) {
                     logger.error("Failed to execute HOST_PORT command");
@@ -142,6 +140,29 @@ public class ActiveClient extends CommandInterpreter implements Runnable
             return false;
         }
         return true;
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="checkDirective(1)">
+    private boolean checkDirective(Directive dir, DirectiveType expType,
+            String expArg0) {
+        if (null == dir) {
+            logger.error("Expected a " + expType + " directive but none found "
+                    + "in message group.");
+            return false;
+        }
+        if (null != expArg0 && !dir.getArg().equals(expArg0)) {
+            logger.error("Active Client handshake failed: Expected " + expArg0
+                    + " got " + dir.getArg());
+            return false;
+        }
+        return true;
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="checkDirective(2)">
+    private boolean checkDirective(Directive dir, DirectiveType expType) {
+        return checkDirective(dir, expType, null);
     }
     // </editor-fold>
 }
