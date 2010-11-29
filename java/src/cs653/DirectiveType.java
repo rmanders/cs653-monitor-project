@@ -22,14 +22,15 @@ public enum DirectiveType {
 
     WAITING("WAITING","(WAITING:)",0,0),
     REQUIRE("REQUIRE","^(REQUIRE:)[\\s]+([\\S]+)$",1,1),
-    COMMAND_ERROR("COMMAND_ERROR", "^(COMMAND_ERROR:)[\\s](.*)",0,1),
-    COMMENT("COMMENT", "^(COMMENT:)[\\s](.*)",0,1),
-    RESULT("RESULT", "^(RESULT:)[\\s]" + Command.COMMAND_PATTERNS + "(.*)",2,2),
+    COMMAND_ERROR("COMMAND_ERROR", "^(COMMAND_ERROR:)(\\s+(.+))?",0,1),
+    COMMENT("COMMENT", "^(COMMENT:)(\\s+(.+))?",0,1),
+    RESULT("RESULT", "^(RESULT:)\\s+" + Command.COMMAND_PATTERNS +
+            "(\\s+(.*))?",1,2),
     PARTICIPANT_PASSWORD_CHECKSUM("PARTICIPANT_PASSWORD_CHECKSUM",
-                "^(PARTICIPANT_PASSWORD_CHECKSUM:)[\\s]+([a-zA-Z0-9]+)$",1,1),
+                "^(PARTICIPANT_PASSWORD_CHECKSUM:)[\\s]+([a-fA-f0-9]+)$",1,1),
     TRANSFER("TRANSFER",
-    "^(TRANSFER:)[\\s]+([\\w]+)[\\s]+([\\d]+)[\\s]+([\\w]+)[\\s]+(FROM)"
-            + "[\\s]+([\\w]+)", 5,5);
+    "^(TRANSFER:)[\\s]+([\\w]+)[\\s]+([\\d]+)[\\s]+(FROM)"
+            + "[\\s]+([\\w]+)", 4,4);
 
     public static final String ALL_DIRECTIVES =
             "(WAITING|REQUIRE|COMMAND_ERROR|COMMENT|RESULT|"

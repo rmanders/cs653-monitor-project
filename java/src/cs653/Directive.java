@@ -108,12 +108,77 @@ public class Directive
         }
 
         // Get all the directive arguments
-        String args[] = new String[dirMatcher.groupCount()-1];
-        for( int i=0; i<dirMatcher.groupCount()-1; i++ ) {
-            args[i] = (String)dirMatcher.group(i+2);
+        String args[];// = new String[dirMatcher.groupCount()-1];
+        //for( int i=0; i<dirMatcher.groupCount()-1; i++ ) {
+        //    args[i] = (String)dirMatcher.group(i+2);
+        //}
+
+        // Handle arguments for each directive type
+        switch(dirType) {
+            case WAITING: {
+                // Expect no arguments
+                args = new String[0];
+                return new Directive( trimmed, dirType, args );
+            }
+            case REQUIRE: {
+                // Expect exactly 1 argument
+                args = new String[1];
+                args[0] = dirMatcher.group(2);
+                return new Directive( trimmed, dirType, args );
+            }
+            case COMMAND_ERROR: {
+                // Expect 0 or 1 arguments
+                if( null != dirMatcher.group(3) ) {
+                    args = new String[1];
+                    args[0] = dirMatcher.group(3);
+                } else {
+                    args = new String[0];
+                }
+                return new Directive( trimmed, dirType, args );
+            }
+            case COMMENT: {
+                // Expect 0 or 1 arguments
+                if( null != dirMatcher.group(3) ) {
+                    args = new String[1];
+                    args[0] = dirMatcher.group(3);
+                } else {
+                    args = new String[0];
+                }
+                return new Directive( trimmed, dirType, args );
+            }
+            case RESULT: {
+                // Expect 1 or 2 arguments
+                if( null != dirMatcher.group(4) ) {
+                    args = new String[2];
+                    args[0] = dirMatcher.group(2);
+                    args[1] = dirMatcher.group(4);
+                } else {
+                    args = new String[1];
+                    args[0] = dirMatcher.group(2);
+                }
+                return new Directive( trimmed, dirType, args );
+            }
+            case PARTICIPANT_PASSWORD_CHECKSUM: {
+                // Expect exactly 1 argument
+                args = new String[1];
+                args[0] = dirMatcher.group(2);
+                return new Directive( trimmed, dirType, args );
+            }
+            case TRANSFER: {
+                //Expect exactly 4 arguments
+                args = new String[4];
+                args[0] = dirMatcher.group(2);
+                args[1] = dirMatcher.group(3);
+                args[2] = dirMatcher.group(4);
+                args[3] = dirMatcher.group(5);
+                return new Directive( trimmed, dirType, args );
+            }
+            default: {
+                return null;
+            }
         }
 
-        return new Directive( trimmed, dirType, args );
+        //return new Directive( trimmed, dirType, args );
     }
 
     public String getArg()

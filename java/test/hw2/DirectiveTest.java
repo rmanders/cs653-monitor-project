@@ -31,12 +31,15 @@ public class DirectiveTest {
     public static String c1 = "COMMENT:";
     public static String c2 = "COMMENT: This here is a comment";
     public static String s1 = "RESULT:";
-    public static String s2 = "RESULT: ARG1";
-    public static String s3 = "RESULT: ARG2 these are the results";
+    public static String s2 = "RESULT: IDENT";
+    public static String s3 = "RESULT: PASSWORD these are the results";
     public static String p1 = "PARTICIPANT_PASSWORD_CHECKSUM:";
-    public static String p2 = "PARTICIPANT_PASSWORD_CHECKSUM: PASSWORDCHECKSUM";
+    public static String p2 = "PARTICIPANT_PASSWORD_CHECKSUM: 05fA67b05D";
     public static String p3 = "PARTICIPANT_PASSWORD_CHECKSUM: PASSWORD CHECKSUM";
-
+    public static String x1 = "TRANSFER:";
+    public static String x2 = "TRANSFER: kjhd 23 SDW kjhd";
+    public static String x3 = "TRANSFER: PLAYER_1 xyz FROM player_3";
+    public static String x4 = "TRANSFER: PLAYER_1 100 FROM player_3";
 
     public DirectiveTest() {
     }
@@ -62,20 +65,20 @@ public class DirectiveTest {
      */
     @Test
     public void testWAITING() {
-        System.out.println("Test Waiting");
+        System.out.println("==== Test Waiting ====");
 
         String args[] = new String[0];
 
         Directive dir1 = Directive.getInstance(w1);
-        //Directive dir2 = Directive.getInstance(w2);
+        Directive dir2 = Directive.getInstance(w2);
 
         assertTrue(testDirective(dir1, DirectiveType.WAITING, 0, args));
-        //assertNull(Directive.getInstance(w2));
+        assertNull(Directive.getInstance(w2));
     }
 
     @Test
     public void testREQUIRE() {
-        System.out.println("Test Require");
+        System.out.println("==== Test Require ====");
 
         String args[] = {"ARG1"};
 
@@ -89,22 +92,22 @@ public class DirectiveTest {
 
     @Test
     public void testCOMMAND_ERROR() {
-        System.out.println("====Test Command_error");
+        System.out.println("==== Test Command_error ====");
 
         String args1[] = new String[0];
         String args2[] = {"THIS IS A TEST"};
 
         Directive dir1 = Directive.getInstance(e1);
-        //Directive dir2 = Directive.getInstance(e2);
+        Directive dir2 = Directive.getInstance(e2);
         //System.out.println(dir1);
         //System.out.println(dir2);
         assertTrue(testDirective(dir1, DirectiveType.COMMAND_ERROR, 0, args1));
-        //assertTrue(testDirective(dir2, DirectiveType.COMMAND_ERROR, 1, args2));
+        assertTrue(testDirective(dir2, DirectiveType.COMMAND_ERROR, 1, args2));
     }
 
     @Test
     public void testCOMMENT() {
-        System.out.println("Test Comment");
+        System.out.println("==== Test Comment ====");
 
         String args1[] = new String[0];
         String args2[] = {"This here is a comment"};
@@ -117,27 +120,27 @@ public class DirectiveTest {
 
     @Test
     public void testRESULT() {
-        System.out.println("Test Result");
+        System.out.println("==== Test Result ====");
 
         String args1[] = new String[0];
-        String args2[] = {"ARG1"};
-        String args3[] = {"ARG2","these are the results"};
+        String args2[] = {"IDENT"};
+        String args3[] = {"PASSWORD","these are the results"};
 
         Directive dir1 = Directive.getInstance(s1);
         Directive dir2 = Directive.getInstance(s2);
         Directive dir3 = Directive.getInstance(s3);
         assertNull(dir1);
         assertTrue(testDirective(dir2, DirectiveType.RESULT, 1, args2));
-        System.out.println(dir3.toString());
+        //System.out.println(dir3.toString());
         assertTrue(testDirective(dir3, DirectiveType.RESULT, 2, args3));
     }
 
     @Test
     public void testPPC() {
-        System.out.println("Test Participant Password Checksum");
+        System.out.println("==== Test Participant Password Checksum ====");
 
         String args1[] = new String[0];
-        String args2[] = {"PASSWORDCHECKSUM"};
+        String args2[] = {"05fA67b05D"};
         String args3[] = {"PASSWORD"};
 
         Directive dir1 = Directive.getInstance(p1);
@@ -147,10 +150,25 @@ public class DirectiveTest {
         assertTrue(testDirective(dir2, 
                 DirectiveType.PARTICIPANT_PASSWORD_CHECKSUM,
                 1, args2));
-        //System.out.println(dir3.toString());
-        assertTrue(testDirective(dir3, 
-                DirectiveType.PARTICIPANT_PASSWORD_CHECKSUM,
-                1, args3));
+        assertNull(dir3);
+
+    }
+
+    @Test
+    public void testTransfer() {
+        System.out.println("==== Test Transfer ====");
+
+        String args4[] = {"PLAYER_1", "100", "FROM", "player_3"};
+
+        Directive dir1 = Directive.getInstance(x1);
+        Directive dir2 = Directive.getInstance(x2);
+        Directive dir3 = Directive.getInstance(x3);
+        Directive dir4 = Directive.getInstance(x4);
+        assertNull(dir1);
+        assertNull(dir2);
+        assertNull(dir3);
+        assertTrue(testDirective(dir4,DirectiveType.TRANSFER, 4, args4));
+
     }
 
     public boolean testDirective( final Directive dir, DirectiveType expDir,
