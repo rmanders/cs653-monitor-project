@@ -16,8 +16,9 @@ public class TestMain {
     public static void main( String args[] ) {
 
         run = true;
-        ActiveClient client = new ActiveClient("localhost",8150,8250,"andersr9","password");
-        Server server = new Server(8250,"andersr9","password");
+        ConfigData config = ConfigData.getInstance("c:\\andersr9.txt");
+        ActiveClient client = new ActiveClient("c:\\andersr9.txt");
+        Server server = new Server(config);
         server.startServer();
         //client.openConnection("localhost", 8150);
         //client.login();

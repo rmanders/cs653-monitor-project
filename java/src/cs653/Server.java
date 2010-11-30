@@ -12,23 +12,22 @@ import org.apache.log4j.Logger;
 
 /**
  *
- * @author rmanders
+ * @author Ryan Anderson
  */
 public class Server implements Runnable {
 
-    protected int serverPort;
+    protected final int serverPort;
     protected Thread runner;
     protected ServerSocket socServer = null;
-    protected String ident;
-    protected String password;
+    protected ConfigData config = null;
 
     private final Logger logger = Logger.getLogger(Server.class);
 
-    public Server( int serverPort, String ident, String password ) {
-        logger.debug("Instancing local Server on port: " + serverPort);
-        this.serverPort = serverPort;
-        this.ident = ident;
-        this.password = password;
+    public Server( ConfigData config ) {
+        this.config = config;
+        this.serverPort = Integer.
+                parseInt(this.config.getProperty("serverPort"));
+        logger.debug("Instancing local Server on port: " + this.serverPort);
         try {
             socServer = new ServerSocket( serverPort );
         } catch ( IOException ex ) {
@@ -53,11 +52,12 @@ public class Server implements Runnable {
             int threadId = 0;
             while( true ) {
                 Socket connection = socServer.accept();
-                new ServerThread(connection, threadId, ident)
+                new ServerThread(connection, threadId, config)
                         .startServertThread();
             }
         } catch (Exception ex ) {
-
+            runner = null;
+            logger.error("Server FATAL Error: " + ex);
         }
         logger.debug("Terminating Server");
     }

@@ -7,7 +7,6 @@ package cs653;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.FileWriter;
 import java.net.Socket;
 import java.io.PrintWriter;
 import java.io.BufferedReader;
@@ -15,9 +14,6 @@ import java.net.UnknownHostException;
 import java.util.List;
 import java.util.LinkedList;
 import org.apache.log4j.Logger;
-import java.io.File;
-import java.io.FileReader;
-import java.util.Scanner;
 import cs653.security.DiffieHellmanExchange;
 import cs653.security.KarnCodec;
 import java.math.BigInteger;
@@ -34,46 +30,62 @@ import java.util.regex.Pattern;
  */
 public class CommandInterpreter
 {
-
-    protected static String COOKIE = null;
-    protected static String HOSTNAME = null;
-    protected static String PASSWORD;
-    protected static String MONITORHOST = null;
-    protected static int MONITORPORT;
-    protected static int HOST_PORT;
+    // Static variables
     protected static boolean ENCRYPTION_ON = true;
-    protected static final String FILENAME = "c:\\andersr9.txt";
 
     private static final Pattern encPattern =
             Pattern.compile("^(RESULT):[\\s]+(IDENT)[\\s]+([a-zA-Z0-9]+)");
 
+    private static final String[] requiredConfigProperties = 
+            {"identity","password","monitorHostname","monitorPort",
+             "serverHostname","serverPort"};
+
+    // Instance variables
+    protected ConfigData CONFIG = null;
     protected Socket socConnection = null;
     protected DiffieHellmanExchange dhe = null;
     protected KarnCodec karn = null;
-    protected final String identity;
+    protected String identity;
+    protected final Logger logger;
     
     private PrintWriter bufferOut = null;
     private BufferedReader bufferIn = null;
-    private final Logger logger = Logger.getLogger(CommandInterpreter.class);
 
-    public CommandInterpreter(
-            String monitorHost,
-            int monitorPort,
-            int hostPort,
-            String identity,
-            String password) {
-        MONITORHOST = monitorHost;
-        MONITORPORT = monitorPort;
-        HOST_PORT = hostPort;
+    public CommandInterpreter( String monitorHostname, int monitorPort,
+            String serverHostname, int serverPort,
+            String identity, String password, Logger logger ) {
+        this.logger = logger;
+        CONFIG = new ConfigData();
+        CONFIG.addProperty("monitorHostname", monitorHostname);
+        CONFIG.addProperty("monitorPort", String.valueOf(monitorPort));
+        CONFIG.addProperty("serverHostname", serverHostname);
+        CONFIG.addProperty("serverPort", String.valueOf(serverPort));
+        CONFIG.addProperty("identity", identity);
+        CONFIG.addProperty("password", password);
         this.identity = identity;
-        PASSWORD = password;
-        loadConfig();
         logger.debug("Instanced CommandInterpreter");
     }
 
-    public CommandInterpreter( String identity ) {
-        this.identity = identity;
+    public CommandInterpreter( String configfile, Logger logger ) {
+        this.logger = logger;
+        if( !loadConfig(configfile) ) {
+            logger.error("FATAL ERROR: couldn't load configuration file");
+            System.exit(1);
+        }
+        this.identity = CONFIG.getProperty("identity");
     }
+
+    public CommandInterpreter( ConfigData config, Logger logger ) {
+        this.logger = logger;
+        if( !checkConfig(config)) {
+            System.exit(1);
+        }
+        CONFIG = config;
+        
+        // TODO: this is a hack
+        this.identity = CONFIG.getProperty("identity");
+    }
+
 
     // <editor-fold defaultstate="collapsed" desc="openConnection">
     /**
@@ -114,7 +126,7 @@ public class CommandInterpreter
      * @return True if IO buffers were successfully created for the socket
      * false otherwise.
      */
-    protected boolean initConnectionIO() {
+    public boolean initConnectionIO() {
         try {
             bufferIn = new BufferedReader(new InputStreamReader(socConnection.getInputStream()));
             logger.debug("Successfully opened input buffer.");
@@ -134,7 +146,7 @@ public class CommandInterpreter
     /**
      * Closes the Socket and I/O buffers (if open)
      */
-    protected void closeConnection() {
+    public void closeConnection() {
         try {
             if (null != bufferOut) {
                 bufferOut.close();
@@ -183,7 +195,7 @@ public class CommandInterpreter
      *
      * @return
      */
-    protected MessageGroup receiveMessageGroup() {
+    public MessageGroup receiveMessageGroup() {
         try {
             List<Directive> dirs = new LinkedList<Directive>();
             Directive dir = null;
@@ -302,6 +314,33 @@ public class CommandInterpreter
     }
     // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="sendText">
+    /**
+     * Sends free-form text to the monitor server.
+     * Encrypts if encryption is active
+     *
+     * @param textmsg
+     * @param args Arguments for the command
+     * @return Always returns 1 if sent, 0 otherwise
+     */
+    public int sendText( String textmsg) {
+
+
+        // Handle Encrytion
+        String sendText = null;
+        if( ENCRYPTION_ON && null != karn ) {
+            sendText = karn.encrypt(textmsg);
+        } else {
+            sendText = textmsg;
+        }
+
+        bufferOut.println(sendText);
+        logger.debug("Sent free-form text message: " + textmsg);
+
+        return 1;
+    }
+    // </editor-fold>
+
     // <editor-fold defaultstate="collapsed" desc="executeCommand">
     protected boolean executeCommand(Command command, String... args) {
         switch (command) {
@@ -321,7 +360,7 @@ public class CommandInterpreter
                 if (args.length == 1) {
                     sendCommand(command, args[0]);
                 } else {
-                    sendCommand(command, PASSWORD);
+                    sendCommand(command, CONFIG.getProperty("password"));
                 }
                 break;
             }
@@ -333,7 +372,8 @@ public class CommandInterpreter
                 if (args.length == 2) {
                     sendCommand(command, args[0], args[1]);
                 } else {
-                    sendCommand(command, HOSTNAME, String.valueOf(HOST_PORT));
+                    sendCommand(command, CONFIG.getProperty("serverHostname"),
+                            CONFIG.getProperty("serverPort"));
                 }
                 break;
             }
@@ -345,7 +385,13 @@ public class CommandInterpreter
                 if (args.length == 1) {
                     sendCommand(command, args[0]);
                 } else {
-                    sendCommand(command, COOKIE);
+                    if( CONFIG.hasProperty("cookie") ) {
+                        sendCommand(command, CONFIG.getProperty("cookie"));
+                    } else {
+                        logger.error("No monitor cookie found in CONFIG "
+                                + "properties, sending null cookie value");
+                        sendCommand(command, "null");
+                    }
                 }
                 break;
             }
@@ -369,46 +415,44 @@ public class CommandInterpreter
     }
     // </editor-fold>
 
-    // <editor-fold defaultstate="collapsed" desc="saveConfig">
-    public void saveConfig(String password, String cookie) {
-        PrintWriter file = null;
-        if (null != password && password.trim().length() > 0) {
-            try {
-                file = new PrintWriter(new FileWriter(FILENAME));
-                file.println("PASSWORD = " + password);
-                if (null != cookie && cookie.trim().length() > 0) {
-                    file.println("COOKIE = " + cookie);
-                }
-                file.close();
-            } catch (IOException e) {
-                logger.error("Failed to write config file: " + e);
-                return;
-            }
-            logger.debug("Saved Configuration file [" + FILENAME + "] Successfully.");
+    // <editor-fold defaultstate="collapsed" desc="loadConfig">
+    protected final boolean loadConfig( String filename ) {
+        // TODO: verify integer value as integer prsable
+        CONFIG = ConfigData.getInstance(filename);
+        if( null == CONFIG ) {
+            logger.error("Failed to load configuration file: " + filename);
+            return false;
         }
+
+        // Check for existence of required properties
+        for( String prop : requiredConfigProperties ) {
+            if(!CONFIG.hasProperty(prop)) {
+                logger.error("FATAL ERROR: while loading configuration file. "
+                        + "The required property [" + prop +
+                        "] was not found in  the file.");
+                return false;
+            }
+        }
+
+        return true;
     }
     // </editor-fold>
 
-    // <editor-fold defaultstate="collapsed" desc="loadConfig">
-    protected  final void loadConfig() {
-        File file = null;
-        Scanner scanner = null;
-        try {
-            file = new File(FILENAME);
-            scanner = new Scanner(new FileReader(file));
-            while (scanner.hasNextLine()) {
-                String str = scanner.nextLine().trim();
-                if (str.matches("PASSWORD(\\s)*=(.)*")) {
-                    PASSWORD = str.replaceFirst("PASSWORD(\\s)*=(\\s)*", "");
-                } else if (str.matches("COOKIE(\\s)*=(.)*")) {
-                    COOKIE = str.replaceFirst("COOKIE(\\s)*=(\\s)*", "");
-                }
+    // <editor-fold defaultstate="collapsed" desc="checkConfig">
+    protected final boolean checkConfig(ConfigData config) {
+        for (String prop : requiredConfigProperties) {
+            if (!config.hasProperty(prop)) {
+                logger.error("FATAL ERROR: while reading config data: "
+                        + "The required property [" + prop +
+                        "] was not found.");
+                return false;
             }
-        } catch (IOException e) {
-            logger.error("Failed to load config file: " + e);
-            return;
         }
-        logger.debug("Config file[" + FILENAME + "] loaded successfully.");
+        return true;
     }
     // </editor-fold>
+
+    public Socket getSocket() {
+        return socConnection;
+    }
 }

@@ -43,6 +43,14 @@ public class ConfigData {
         properties = new HashMap<String,String>(MAPSIZE);
     }
 
+    public static ConfigData getInstance( String filename ) {
+        ConfigData cfg = new ConfigData(filename);
+        if( cfg.load() ) {
+            return cfg;
+        }
+        return null;
+    }
+
     // <editor-fold defaultstate="collapsed" desc="save(1)">
     public void save(final String filename) {
         PrintWriter file = null;

@@ -21,13 +21,11 @@ import cs653.security.KarnCodec;
 public class ServerThread extends CommandInterpreter implements Runnable {
 
     private int threadId;
-    private final Logger logger;
     private Thread runner;
 
     // <editor-fold defaultstate="collapsed" desc="Constructor">
-    public ServerThread(Socket socConnection, int threadId, String identity) {
-        super(identity);
-        logger = Logger.getLogger("ServerThread ID[" + threadId + "]");
+    public ServerThread(Socket socConnection, int threadId, ConfigData config) {
+        super(config, Logger.getLogger("ServerThread ID[" + threadId + "]"));
         this.threadId = threadId;
         this.socConnection = socConnection;
         if (!initConnectionIO()) {
@@ -50,6 +48,11 @@ public class ServerThread extends CommandInterpreter implements Runnable {
     // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="doLoginHandshake">
+    /**
+     * This method executes the protocol for a login handshake with the monitor.
+     *
+     * @return true if the handshake was successful, false otherwise
+     */
     public boolean doLoginHandshake() {
         
         // Receive the first message group
@@ -61,9 +64,12 @@ public class ServerThread extends CommandInterpreter implements Runnable {
         if( !checkDirective(dir,DirectiveType.PARTICIPANT_PASSWORD_CHECKSUM) ) {
             return false;
         }
-        if( !KarnCodec.quickSha(PASSWORD).equals(dir.getArg(0)) ) {
+
+        String password = CONFIG.getProperty("password");
+        if( !KarnCodec.quickSha(password).equals(dir.getArg(0)) ) {
             logger.warn(" The Participant Password Checksum from the foreign "
-                    + "connection did not match. Rejecting login.");
+                    + "connection did not match. Rejecting login. Mine:[" +
+                    password + "] theirs:[" + dir.getArg(0) + "]");
             return false;
         }
 
@@ -92,7 +98,7 @@ public class ServerThread extends CommandInterpreter implements Runnable {
             result = executeCommand(Command.IDENT);
         }
         if (!result) {
-            logger.error("In doLoginHandshake: Failed to execute IDENT command");
+            logger.error("In doLoginHandshake: Failed to execute IDENT cmd");
             return false;
         }
 
@@ -133,36 +139,57 @@ public class ServerThread extends CommandInterpreter implements Runnable {
     // </editor-fold>
 
     public void run() {
-
-        // TODO: Execute login protocol
+        
         if( !doLoginHandshake() ) {
             logger.error("ServerThread Login handshake FAILED");
         }
         logger.debug("Server Thread Login handshake SUCCEEDED");
         
-        // TODO: Find out exactly how to terminate threads properly
-        //while( Thread.currentThread() == this.runner ) {
-            
-        //}
         logger.debug("Exiting Local Server thread");
     }
 
+    // <editor-fold defaultstate="collapsed" desc="checkDirective(1)">
+    /**
+     * Use this to check whether or not a directive matches an expected
+     * directive and if not, output the appropriate error/debug statements to
+     * the log files.
+     *
+     * @param dir A {@link Directive} to validate
+     * @param expType The expected {@link DirectiveType}
+     * @param expArg0 The expected first argument of the directive
+     * @return true if the directive meets expectations, false otherwise
+     *
+     */
     private boolean checkDirective(Directive dir, DirectiveType expType,
             String expArg0) {
-         if( null == dir ) {
+        if (null == dir) {
             logger.error("Expected a " + expType + " directive but none found "
                     + "in message group.");
             return false;
-         }
-         if( null != expArg0 && !dir.getArg().equals(expArg0)) {
-             logger.error("Local Server handshake failed: Expected " + expArg0
-                     + " got " + dir.getArg() );
-             return false;
-         }
-         return true;
+        }
+        if (null != expArg0 && !dir.getArg().equals(expArg0)) {
+            logger.error("Local Server handshake failed: Expected " + expArg0
+                    + " got " + dir.getArg());
+            return false;
+        }
+        return true;
     }
+    // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="checkDirective(2)">
+    /**
+     *
+     * Use this to check whether or not a directive matches an expected
+     * directive and if not, output the appropriate error/debug statements to
+     * the log files.
+
+     * @param dir A {@link Directive} to validate
+     * @param expType The expected {@link DirectiveType}
+     * @return true if the directive meets expectations, false otherwise
+     *
+     */
     private boolean checkDirective(Directive dir, DirectiveType expType) {
         return checkDirective(dir, expType, null);
     }
+    // </editor-fold>
 }

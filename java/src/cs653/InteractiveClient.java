@@ -24,7 +24,7 @@ public class InteractiveClient  {
         boolean loop = true;
         Scanner scanIn = new Scanner(System.in);
         ActiveClient client =
-                new ActiveClient("localhost",8150,8250,"andersr9","password");
+                new ActiveClient("c:\\andersr9.txt");
         client.openConnection("localhost", 8150);
         client.login();
 

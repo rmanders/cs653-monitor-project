@@ -16,16 +16,21 @@ import java.net.Socket;
  */
 public class ActiveClient extends CommandInterpreter implements Runnable
 {
-    private final Logger logger = Logger.getLogger(ActiveClient.class);
     private Thread runner = null;
 
-    public ActiveClient( String monitorHost, int monitorPort, int hostPort,
+    public ActiveClient( String monitorHost, int monitorPort, 
+            String serverHostname, int serverPort,
             String identity, String password ) {
-        super( monitorHost, monitorPort, hostPort, identity, password );
+        super( monitorHost, monitorPort, serverHostname, serverPort,
+                identity, password, Logger.getLogger(ActiveClient.class));
+    }
 
-        //TODO: Remove this from hard code
-        HOSTNAME = "localhost";
+    public ActiveClient( String configfile ) {
+        super(configfile, Logger.getLogger(ActiveClient.class));
+    }
 
+    public ActiveClient( ConfigData config ) {
+        super(config, Logger.getLogger(ActiveClient.class));
     }
 
     // <editor-fold defaultstate="collapsed" desc="launch">
@@ -46,7 +51,10 @@ public class ActiveClient extends CommandInterpreter implements Runnable
 
             try {
                 logger.debug("Opening Client connection to Monitor");
-                socConnection = new Socket(MONITORHOST, MONITORPORT);
+                String monitorHostname = CONFIG.getProperty("monitorHostname");
+                int monitorPort = Integer
+                        .parseInt(CONFIG.getProperty("monitorPort"));
+                socConnection = new Socket(monitorHostname,monitorPort);
                 initConnectionIO();
 
                 logger.debug("Calling client login function");
@@ -115,8 +123,15 @@ public class ActiveClient extends CommandInterpreter implements Runnable
                     logger.error("Login failed: expected password result, got: "
                             + dir);
                 }
-                COOKIE = dir.getArg(1);
-                this.saveConfig(PASSWORD, COOKIE);
+
+                // Store and save the cookie
+                if( CONFIG.hasProperty("cookie")) {
+                    CONFIG.setProperty("cookie", dir.getArg(1));
+                } else {
+                    CONFIG.addProperty("cookie", dir.getArg(1));
+                }
+                CONFIG.save();
+                
             } else if (dir.getArg().equals("ALIVE")) {
                 result = executeCommand(Command.ALIVE);
                 if (!result) {
