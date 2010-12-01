@@ -8,6 +8,7 @@ package interactiveclient;
 import cs653.*;
 import java.io.File;
 import java.util.Scanner;
+import java.util.StringTokenizer;
 
 /**
  *
@@ -66,6 +67,8 @@ public class Main {
             System.exit(1);
         }
 
+        //client.doTransfer("TEST2", "TEST3", 10);
+
         System.out.println("monitor login succeeded");
         System.out.println(MOTD);
 
@@ -73,9 +76,30 @@ public class Main {
             System.out.print("%>");
             String inline = scanIn.nextLine().replace("%>", "");
 
-            if( inline.trim().equals("exit")) {
+            String command = inline.trim();
+            if( command.equals("exit")) {
                 loop = false;
-            } else {
+            } 
+            else if(command.substring(0, 1).equals("/")) {
+                StringTokenizer toker = new StringTokenizer(command," ");
+                String cmd = toker.nextToken();
+                if( cmd.equals("/transfer") && toker.countTokens() == 3) {
+                    String ident1 = toker.nextToken();
+                    String ident2 = toker.nextToken();
+                    String quant = toker.nextToken();
+                    try {
+                        int q = Integer.parseInt(quant);
+                        client.doTransfer(ident1, ident2, q);
+                    } catch (NumberFormatException ex ) {
+                        System.out.println("%> last parameter of /trnsfer was not an integer");
+                    }
+                }
+                else
+                {
+                    System.out.println("%> Invalid console command");
+                }
+            }
+            else {
                 
                 client.sendText(inline);
                 MessageGroup msgs = client.receiveMessageGroup();

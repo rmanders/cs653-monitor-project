@@ -10,6 +10,7 @@ import org.apache.log4j.Logger;
 import cs653.security.DiffieHellmanExchange;
 import cs653.security.KarnCodec;
 import java.math.BigInteger;
+import java.util.Random;
 
 /**
  *
@@ -123,6 +124,7 @@ public class ServerThread extends CommandInterpreter implements Runnable {
         msgs = receiveMessageGroup();
 
         if(msgs.hasDirective(DirectiveType.TRANSFER)) {
+            logger.info("Transfer request detected during login handshake.");
             return handleTransfer(msgs);
         } else {
             msgs.reset();
@@ -155,14 +157,21 @@ public class ServerThread extends CommandInterpreter implements Runnable {
         logger.info("Transfer request received: " + dir);
 
         // Expect public key
-        msgs = receiveMessageGroup();
+        //msgs = receiveMessageGroup();
         dir = msgs.getNext(DirectiveType.RESULT);
         if(!checkDirective(dir, DirectiveType.RESULT,"PUBLIC_KEY")) {
             return false; }
 
         // TODO: do public key stuff here
-        //BigInteger v = new BigInteger(dir.getArg(1),32);
-        //BigInteger n = new BigInteger(dir.getArg(2),32);
+        String keys[] = dir.getArgStringArray(1);
+        if( null == keys ) {
+            logger.error("Error while retrieving public keys from initiator's "
+                    + "RESULT PUBLIC_KEYS directive.");
+            return false;
+        }
+        BigInteger v = new BigInteger(keys[0],32);
+        BigInteger n = new BigInteger(keys[1],32);
+        logger.debug("Got keys: " + v + ", " + n);
 
         // TODO: so certificate stuff here
 
@@ -179,8 +188,14 @@ public class ServerThread extends CommandInterpreter implements Runnable {
         if(!checkDirective(dir, DirectiveType.RESULT,"AUTHORIZE_SET")) {
             return false; }
 
-        //TODO: Do authorize set stuff here
-        String fodder = " 1 2 3 4 5 6 7 8 9 10";
+        //TODO: Compute SUBSET_A here
+        StringBuilder fodder = new StringBuilder();
+        Random rand = new Random();
+       for( int i=0; i<10; i++ ) {
+           if(rand.nextBoolean()) {
+               fodder.append(" ").append(i);
+           }
+       }
 
         // Expect REQUIRE SUBSET_A
         dir = msgs.getNext(DirectiveType.REQUIRE);
@@ -188,7 +203,7 @@ public class ServerThread extends CommandInterpreter implements Runnable {
             return false; }
 
         // Execute SUBSET_A
-        result = executeCommand(Command.SUBSET_A,fodder);
+        result = executeCommand(Command.SUBSET_A,fodder.toString());
         if( !result ) {
             logger.error("Failed to execute command: " + Command.SUBSET_A);
             return false;
@@ -196,19 +211,26 @@ public class ServerThread extends CommandInterpreter implements Runnable {
 
         // Expect SUBSET_K and SUBSET_J
         msgs = receiveMessageGroup();
-        dir = msgs.getNext(DirectiveType.RESULT);
-        if(!checkDirective(dir, DirectiveType.RESULT,"SUBSET_J")) {
+        dir = msgs.getFirstDirectiveOf(DirectiveType.RESULT, "SUBSET_K");
+        if(!checkDirective(dir, DirectiveType.RESULT,"SUBSET_K")) {
             return false; }
 
         // Todo: Store subset j
 
-        dir = msgs.getNext(DirectiveType.RESULT);
-        if(!checkDirective(dir, DirectiveType.RESULT,"SUBSET_K")) {
+        dir = msgs.getFirstDirectiveOf(DirectiveType.RESULT, "SUBSET_J");
+        if(!checkDirective(dir, DirectiveType.RESULT,"SUBSET_J")) {
             return false; }
 
         // Todo: Store subset k
         // Todo: process subset k & j and decide on result
-        boolean transferOk = false;
+        boolean transferOk = isLockOpen();
+        logger.debug("Transfer OK?: " + transferOk);
+        logger.debug("Set lock to NO succeded?: " + setLockNo() );
+
+        // Expect transfer response
+        dir = msgs.getNext(DirectiveType.REQUIRE);
+        if(!checkDirective(dir, DirectiveType.REQUIRE,"TRANSFER_RESPONSE")) {
+            return false; }
 
         //Execute Transfer Response
         if(transferOk) {
@@ -225,12 +247,10 @@ public class ServerThread extends CommandInterpreter implements Runnable {
         }
 
         // Expect QUIT
+        msgs = receiveMessageGroup();
         dir = msgs.getNext(DirectiveType.REQUIRE);
-        if (!dir.getArg().equals("QUIT")) {
-            logger.error("Local Server handshake failed: Expected QUIT, got "
-                    + dir.getArg());
-            return false;
-        }
+        if(!checkDirective(dir, DirectiveType.REQUIRE,"QUIT")) {
+            return false; }
 
         // Execute QUIT command
         result = executeCommand(Command.QUIT);

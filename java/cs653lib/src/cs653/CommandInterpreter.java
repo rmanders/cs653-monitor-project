@@ -16,6 +16,9 @@ import java.util.LinkedList;
 import org.apache.log4j.Logger;
 import cs653.security.DiffieHellmanExchange;
 import cs653.security.KarnCodec;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.math.BigInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -31,6 +34,8 @@ import java.util.regex.Pattern;
 public class CommandInterpreter
 {
     // Static variables
+    private static final String LOCKFILE = "/home/andersr9/lockfile.lck";
+
     protected static boolean ENCRYPTION_ON = true;
 
     private static final Pattern encPattern =
@@ -202,7 +207,7 @@ public class CommandInterpreter
 
             String strPlain = processMessage(bufferIn.readLine().trim());
             
-            while (!strPlain.matches("WAITING(.)*")) {
+            while (!strPlain.matches("WAITING:(.)*")) {
 
                 dir = Directive.getInstance(strPlain);
                 if (null == dir) {
@@ -213,6 +218,12 @@ public class CommandInterpreter
                     dirs.add(dir);
                 }
                 strPlain = processMessage(bufferIn.readLine().trim());
+            }
+            if (!strPlain.matches("WAITING:(.)*")) {
+                dir = Directive.getInstance(strPlain);
+                if( null != dir ) {
+                    dirs.add(dir);
+                }
             }
             return new MessageGroup(dirs);
         } catch (java.io.IOException e) {
@@ -406,6 +417,56 @@ public class CommandInterpreter
             case PARTICIPANT_HOST_PORT: {
                 sendCommand(command, args);
             }
+            case TRANSFER_REQUEST: {
+                sendCommand(command, args);
+                return true;
+            }
+            case TRANSFER_RESPONSE: {
+                sendCommand(command, args);
+                return true;
+            }
+            case PUBLIC_KEY: {
+                sendCommand(command, args);
+                return true;
+            }
+            case ROUNDS: {
+                if( args.length == 1) {
+                    sendCommand(command, args[0]);
+                    return true;
+                } else {
+                    logger.error("Invalid number of arguments["
+                            + args.length + " for Command: " + command );
+                    return false;
+                }
+            }
+            case AUTHORIZE_SET: {
+                sendCommand(command, args);
+                return true;
+            }
+            case SUBSET_A: {
+                sendCommand(command, args);
+                return true;
+            }
+            case SUBSET_J: {
+                sendCommand(command, args);
+                return true;
+            }
+            case SUBSET_K: {
+                sendCommand(command, args);
+                return true;
+            }
+            case GET_MONITOR_KEY: {
+                sendCommand(command, args);
+                return true;
+            }
+            case GET_CERTIFICATE: {
+                sendCommand(command, args);
+                return true;
+            }
+            case MAKE_CERTIFICATE: {
+                sendCommand(command, args);
+                return true;
+            }
             default: {
                 logger.error("Command: [" + command + "] not handled");
                 return false;
@@ -452,7 +513,46 @@ public class CommandInterpreter
     }
     // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="getSocket">
     public Socket getSocket() {
         return socConnection;
+    }
+    // </editor-fold>
+
+    public boolean setLockNo() {
+        try {
+            PrintWriter file = new PrintWriter(new FileWriter(LOCKFILE));
+            file.println("no");
+            file.close();
+            return true;
+        } catch (Exception ex ) {
+            logger.error(ex);
+            return false;
+        }
+    }
+
+    public boolean setLockYes() {
+        try {
+            PrintWriter file = new PrintWriter(new FileWriter(LOCKFILE));
+            file.println("yes");
+            file.close();
+            return true;
+        } catch (Exception ex ) {
+            logger.error(ex);
+            return false;
+        }
+    }
+
+    public boolean isLockOpen() {
+        try {
+            BufferedReader reader = 
+                    new BufferedReader( new FileReader(LOCKFILE));
+            String line = reader.readLine().trim().toLowerCase();
+            reader.close();
+            return (line != null && line.equals("yes"));
+        } catch (Exception ex ) {
+            logger.error(ex);
+            return false;
+        }
     }
 }

@@ -66,6 +66,25 @@ public class MessageGroup
         return false;
     }
 
+    public boolean hasDirective( DirectiveType directive, String arg0 ) {
+        for( Directive d : messages ) {
+            if( d.getDirectiveType() == directive && d.getArg().equals(arg0)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public Directive getFirstDirectiveOf( DirectiveType directive, String arg0 ) {
+        for( Directive dir : messages ) {
+            if( dir.getDirectiveType() == directive
+                    && dir.getArg().equals(arg0)) {
+                return dir;
+            }
+        }
+        return null;
+    }
+    
     public int getCountOfDirective( DirectiveType directive ) {
         int count = 0;
         for( Directive d : messages ) {

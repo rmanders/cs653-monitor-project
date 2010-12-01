@@ -33,7 +33,7 @@ public class DirectiveTest {
     public static String s1 = "RESULT:";
     public static String s2 = "RESULT: IDENT";
     public static String s3 = "RESULT: PASSWORD these are the results";
-    public static String s4 = "RESULT: PUBLIC_KEY 8 7";
+    public static String s4 = "RESULT:  SUBSET_A  1 3 4 5 6 8 9";
     public static String p1 = "PARTICIPANT_PASSWORD_CHECKSUM:";
     public static String p2 = "PARTICIPANT_PASSWORD_CHECKSUM: 05fA67b05D";
     public static String p3 = "PARTICIPANT_PASSWORD_CHECKSUM: PASSWORD CHECKSUM";
@@ -126,7 +126,7 @@ public class DirectiveTest {
         String args1[] = new String[0];
         String args2[] = {"IDENT"};
         String args3[] = {"PASSWORD","these are the results"};
-        String args4[] = {"PUBLIC_KEY","8 7"};
+        String args4[] = {"SUBSET_A","1 3 4 5 6 8 9"};
 
         Directive dir1 = Directive.getInstance(s1);
         Directive dir2 = Directive.getInstance(s2);
@@ -137,6 +137,12 @@ public class DirectiveTest {
         //System.out.println(dir3.toString());
         assertTrue(testDirective(dir3, DirectiveType.RESULT, 2, args3));
         assertTrue(testDirective(dir4, DirectiveType.RESULT, 2, args4));
+
+        Integer test[] = dir4.getArgIntArray(1);
+        for( Integer I : test ) {
+            System.out.println(I);
+            }
+
     }
 
     @Test

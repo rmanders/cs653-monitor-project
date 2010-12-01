@@ -10,7 +10,10 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+import java.util.StringTokenizer;
 
 /**
  *
@@ -207,6 +210,40 @@ public class Directive
         return directiveType;
     }
 
+    public String[] getArgStringArray( int argNo ) {
+        if( argNo < 0 || argNo >= args.length ) {
+            logger.error("Error in getArgStringArray: Referenced argNo[" +
+                    argNo + " but only " + args.length + " args.");
+            return null;
+        }
+        List<String> results =  new LinkedList<String>();
+        StringTokenizer toker = new StringTokenizer(args[argNo]," ");
+        while( toker.hasMoreTokens() ) {
+            results.add(toker.nextToken().trim());
+        }
+        return results.toArray(new String[results.size()]);
+    }
+
+    public Integer[] getArgIntArray( int argNo ) {
+        if( argNo < 0 || argNo >= args.length ) {
+            logger.error("Error in getArgIntArray: Referenced argNo[" +
+                    argNo + " but only " + args.length + " args.");
+            return null;
+        }
+        List<Integer> results =  new LinkedList<Integer>();
+        StringTokenizer toker = new StringTokenizer(args[argNo]," ");
+        while( toker.hasMoreTokens() ) {
+            try {
+                Integer i = Integer.parseInt(toker.nextToken().trim());
+                results.add(i);
+            } catch (NumberFormatException ex ) {
+                logger.error("Error in getArgIntArray: Could not parse ["
+                        + args[argNo] + " into array of ints.");
+                return null;
+            }
+        }
+        return results.toArray(new Integer[results.size()]);
+    }
 
     @Override
     public String toString()
