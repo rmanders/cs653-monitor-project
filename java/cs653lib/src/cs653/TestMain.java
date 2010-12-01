@@ -16,13 +16,13 @@ public class TestMain {
     public static void main( String args[] ) {
 
         run = true;
-        ConfigData config = ConfigData.getInstance("c:\\andersr9.txt");
-        ActiveClient client = new ActiveClient("c:\\andersr9.txt");
+        ConfigData config = ConfigData.getInstance("c:\\test1.cfg");
+        ActiveClient client = new ActiveClient("c:\\test1.cfg");
         Server server = new Server(config);
         server.startServer();
-        //client.openConnection("localhost", 8150);
-        //client.login();
-        //client.closeConnection();
-        client.launch();
+        client.openConnection("localhost", 8150);
+        client.login();
+        client.closeConnection();
+        //client.launch();
     }
 }

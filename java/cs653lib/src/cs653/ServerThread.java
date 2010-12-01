@@ -9,6 +9,7 @@ import java.net.Socket;
 import org.apache.log4j.Logger;
 import cs653.security.DiffieHellmanExchange;
 import cs653.security.KarnCodec;
+import java.math.BigInteger;
 
 /**
  *
@@ -118,8 +119,16 @@ public class ServerThread extends CommandInterpreter implements Runnable {
             return false;
         }
 
-        // Expect QUIT
+        // check for TRANSFER REQUEST
         msgs = receiveMessageGroup();
+
+        if(msgs.hasDirective(DirectiveType.TRANSFER)) {
+            return handleTransfer(msgs);
+        } else {
+            msgs.reset();
+        }
+
+        // Expect QUIT        
         dir = msgs.getNext(DirectiveType.REQUIRE);
         if (!dir.getArg().equals("QUIT")) {
             logger.error("Local Server handshake failed: Expected QUIT, got "
@@ -137,6 +146,101 @@ public class ServerThread extends CommandInterpreter implements Runnable {
         return true;
     }
     // </editor-fold>
+
+    protected boolean handleTransfer(MessageGroup msgs) {
+
+        // Ok folks, we now have a transfer request.
+        msgs.reset();
+        Directive dir = msgs.getNext(DirectiveType.TRANSFER);
+        logger.info("Transfer request received: " + dir);
+
+        // Expect public key
+        msgs = receiveMessageGroup();
+        dir = msgs.getNext(DirectiveType.RESULT);
+        if(!checkDirective(dir, DirectiveType.RESULT,"PUBLIC_KEY")) {
+            return false; }
+
+        // TODO: do public key stuff here
+        //BigInteger v = new BigInteger(dir.getArg(1),32);
+        //BigInteger n = new BigInteger(dir.getArg(2),32);
+
+        // TODO: so certificate stuff here
+
+        // Execute Rounds
+        boolean result = executeCommand(Command.ROUNDS, "10");
+        if( !result ) {
+            logger.error("Failed to execute command: " + Command.ROUNDS);
+            return false;
+        }
+
+        // Expect authorize set
+        msgs = receiveMessageGroup();
+        dir = msgs.getNext(DirectiveType.RESULT);
+        if(!checkDirective(dir, DirectiveType.RESULT,"AUTHORIZE_SET")) {
+            return false; }
+
+        //TODO: Do authorize set stuff here
+        String fodder = " 1 2 3 4 5 6 7 8 9 10";
+
+        // Expect REQUIRE SUBSET_A
+        dir = msgs.getNext(DirectiveType.REQUIRE);
+        if(!checkDirective(dir, DirectiveType.RESULT,"SUBSET_A")) {
+            return false; }
+
+        // Execute SUBSET_A
+        result = executeCommand(Command.SUBSET_A,fodder);
+        if( !result ) {
+            logger.error("Failed to execute command: " + Command.SUBSET_A);
+            return false;
+        }
+
+        // Expect SUBSET_K and SUBSET_J
+        msgs = receiveMessageGroup();
+        dir = msgs.getNext(DirectiveType.RESULT);
+        if(!checkDirective(dir, DirectiveType.RESULT,"SUBSET_J")) {
+            return false; }
+
+        // Todo: Store subset j
+
+        dir = msgs.getNext(DirectiveType.RESULT);
+        if(!checkDirective(dir, DirectiveType.RESULT,"SUBSET_K")) {
+            return false; }
+
+        // Todo: Store subset k
+        // Todo: process subset k & j and decide on result
+        boolean transferOk = false;
+
+        //Execute Transfer Response
+        if(transferOk) {
+            result = executeCommand(Command.TRANSFER_RESPONSE,"ACCEPT");
+            logger.warn("(!) Transfer Request was ACCEPTED");
+        } else {
+            result = executeCommand(Command.TRANSFER_RESPONSE,"DECLINE");
+            logger.warn("Transfer Request was DECLINED");
+        }
+        if( !result ) {
+            logger.error("Failed to execute command: "
+                    + Command.TRANSFER_RESPONSE);
+            return false;
+        }
+
+        // Expect QUIT
+        dir = msgs.getNext(DirectiveType.REQUIRE);
+        if (!dir.getArg().equals("QUIT")) {
+            logger.error("Local Server handshake failed: Expected QUIT, got "
+                    + dir.getArg());
+            return false;
+        }
+
+        // Execute QUIT command
+        result = executeCommand(Command.QUIT);
+        if (!result) {
+            logger.error("Failed to execute command: " + Command.QUIT);
+            return false;
+        }
+
+        return true;
+    }
 
     public void run() {
         
