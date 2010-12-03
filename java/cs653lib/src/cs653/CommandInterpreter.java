@@ -92,7 +92,7 @@ public class CommandInterpreter
     }
 
 
-    // <editor-fold defaultstate="collapsed" desc="openConnection">
+    // <editor-fold defaultstate="collapsed" desc="openConnection(1)">
     /**
      * Opens a socket connection at the specified port and host
      *
@@ -103,9 +103,7 @@ public class CommandInterpreter
     public boolean openConnection(final String host, final int port) {
         try {
             logger.debug("Connecting to: " + host + ", " + port);
-            logger.debug("TEST1");
             socConnection = new Socket(host, port);
-            logger.debug("TEST2");
         } catch (UnknownHostException ex) {
             logger.error(ex);
             socConnection = null;
@@ -119,6 +117,25 @@ public class CommandInterpreter
                 + host + " at port " + String.valueOf(port));
 
         return initConnectionIO();
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="OpenConnection(2)">
+    /**
+     *
+     * Opens a connection using the config data
+     *
+     * @return
+     */
+    public boolean openConnection() {
+        try {
+            String host = CONFIG.getProperty("monitorHostname");
+            int port = Integer.parseInt(CONFIG.getProperty("monitorPort"));
+            return openConnection(host, port);
+        } catch (Exception ex) {
+            logger.error(ex);
+            return false;
+        }
     }
     // </editor-fold>
 
