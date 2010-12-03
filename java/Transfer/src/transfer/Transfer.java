@@ -13,13 +13,14 @@ import java.util.Random;
 import java.util.Scanner;
 import java.util.StringTokenizer;
 import org.apache.log4j.Logger;
+import sun.security.util.BigInt;
 
 
 /**
  *
  * @author rmanders
  */
-public class Main {
+public class Transfer {
 
     private static final String USAGE =
             "Usage: Transfer <to> <from> <amount>";
@@ -37,7 +38,6 @@ public class Main {
      */
     public static void main(String[] args) {
 
-        int newPort = -1;
         SecureRandom secRand = new SecureRandom();
         boolean result = false;
         MessageGroup msgs;
@@ -71,17 +71,14 @@ public class Main {
         if ( (to.equals("TEST1") && from.equals("TEST2")) || (to.equals("TEST2") && from.equals("TEST1")) ) {
             cfgFile = TEST3;
             ident = "TEST3";
-            newPort = 41001 + secRand.nextInt(20000);
         }
         else if ( (to.equals("TEST1") && from.equals("TEST3")) || (to.equals("TEST3") && from.equals("TEST1")) ) {
             cfgFile = TEST2;
             ident = "TEST2";
-            newPort = 21001 + secRand.nextInt(20000);
         }
         else if ( (to.equals("TEST2") && from.equals("TEST3")) || (to.equals("TEST3") && from.equals("TEST2")) ) {
             cfgFile = TEST1;
             ident = "TEST1";
-            newPort = 2048 + secRand.nextInt(20000);
         } else {
             System.out.println("ERROR: could not figure out which account to initiate transfer from");
             System.exit(1);
@@ -128,7 +125,7 @@ public class Main {
 
 
         // CHANGE THE PASSWORD        
-        String pwd = BigInteger.probablePrime(128, secRand).toString(32);
+        String pwd = new BigInteger(128, secRand).toString(32);
         String oldPwd = config.getProperty("password");
 
         logger.info("Trying to CHANGE_PASSWORD from [" + oldPwd + " to [" + pwd + "]");

@@ -591,4 +591,17 @@ public class CommandInterpreter
         }
     }
     // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="setDhe">
+    public void setDhe(DiffieHellmanExchange dhe) {
+        this.dhe = dhe;
+    }
+    // </editor-fold>
+    
+    public ConfigData getCONFIG() {
+        return CONFIG;
+    }
+
+
+
 }

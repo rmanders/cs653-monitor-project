@@ -123,6 +123,15 @@ public class ConfigData {
         return true;
     }
     // </editor-fold>
+    
+    // <editor-fold defaultstate="collapsed" desc="addOrSetProperty">
+    public void addOrSetProperty(String property, String value) {
+        if (null == property) {
+            return;
+        }
+        properties.put(property, value);
+    }
+    // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="hasProperty">
     public boolean hasProperty(String property) {

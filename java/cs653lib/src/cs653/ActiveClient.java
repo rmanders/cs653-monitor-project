@@ -167,15 +167,16 @@ public class ActiveClient extends CommandInterpreter implements Runnable
     }
     // </editor-fold>
 
-    public boolean doTransfer(String to, String from, int amount ) {
+    // <editor-fold defaultstate="collapsed" desc="doTransfer">
+    public boolean doTransfer(String to, String from, int amount) {
         try {
             logger.info("Initiating transfer protocol[ from "
                     + from + " to " + to + " amount: " + amount + "]");
             Random rand = new Random();
 
             boolean result = executeCommand(Command.TRANSFER_REQUEST,
-                    to, Integer.toString(amount), "FROM", from );
-            if(!result) {
+                    to, Integer.toString(amount), "FROM", from);
+            if (!result) {
                 logger.error("Failed to execute command: "
                         + Command.TRANSFER_REQUEST);
                 return false;
@@ -188,8 +189,8 @@ public class ActiveClient extends CommandInterpreter implements Runnable
             BigInteger p = BigInteger.probablePrime(64, rand);
             BigInteger g = BigInteger.probablePrime(64, rand);
             result = executeCommand(Command.PUBLIC_KEY,
-                    p.toString(), g.toString() );
-            if(!result) {
+                    p.toString(), g.toString());
+            if (!result) {
                 logger.error("Failed to execute command: "
                         + Command.PUBLIC_KEY);
                 return false;
@@ -197,8 +198,8 @@ public class ActiveClient extends CommandInterpreter implements Runnable
 
             // Expect REQUIRE Authorize set
             msgs = receiveMessageGroup();
-            Directive dir = msgs.getFirstDirectiveOf(DirectiveType.REQUIRE,"AUTHORIZE_SET");
-            if(!checkDirective(dir,DirectiveType.REQUIRE,"AUTHORIZE_SET")) {
+            Directive dir = msgs.getFirstDirectiveOf(DirectiveType.REQUIRE, "AUTHORIZE_SET");
+            if (!checkDirective(dir, DirectiveType.REQUIRE, "AUTHORIZE_SET")) {
                 return false;
             }
 
@@ -207,7 +208,7 @@ public class ActiveClient extends CommandInterpreter implements Runnable
 
             // Execute Authorize Set
             result = executeCommand(Command.AUTHORIZE_SET, fodder);
-            if(!result) {
+            if (!result) {
                 logger.error("Failed to execute command: " + Command.AUTHORIZE_SET);
                 return false;
             }
@@ -215,28 +216,28 @@ public class ActiveClient extends CommandInterpreter implements Runnable
             // Expect SUBSET_A
             msgs = receiveMessageGroup();
             dir = msgs.getFirstDirectiveOf(DirectiveType.RESULT, "SUBSET_A");
-            if(!checkDirective(dir,DirectiveType.RESULT,"SUBSET_A")) {
+            if (!checkDirective(dir, DirectiveType.RESULT, "SUBSET_A")) {
                 return false;
             }
 
             // Compute Subset_K
             Integer subA[] = dir.getArgIntArray(1);
             String subStr = dir.getArg(1);
-            if(null == subA) {
+            if (null == subA) {
                 logger.error("Error getting SUBSET_A arguments from: " + dir);
                 return false;
             }
 
             //Expect REQUIRE SUBSET_K
             dir = msgs.getFirstDirectiveOf(DirectiveType.REQUIRE, "SUBSET_K");
-            if(!checkDirective(dir,DirectiveType.REQUIRE,"SUBSET_K")) {
+            if (!checkDirective(dir, DirectiveType.REQUIRE, "SUBSET_K")) {
                 return false;
             }
 
 
             // Execute SubsetK
             result = executeCommand(Command.SUBSET_K, subStr);
-            if(!result) {
+            if (!result) {
                 logger.error("Failed to execute command: " + Command.SUBSET_K);
                 return false;
             }
@@ -244,14 +245,14 @@ public class ActiveClient extends CommandInterpreter implements Runnable
             // Expect Require SUBSET_J
             msgs = receiveMessageGroup();
             dir = msgs.getFirstDirectiveOf(DirectiveType.REQUIRE, "SUBSET_J");
-            if(!checkDirective(dir,DirectiveType.REQUIRE,"SUBSET_J")) {
+            if (!checkDirective(dir, DirectiveType.REQUIRE, "SUBSET_J")) {
                 return false;
             }
 
             // Calculate Subset J
             int i = (10 - subA.length);
             fodder = "";
-            for( int j=0; j<i; j++) {
+            for (int j = 0; j < i; j++) {
                 fodder += " " + rand.nextInt(1024);
             }
 
@@ -260,7 +261,7 @@ public class ActiveClient extends CommandInterpreter implements Runnable
 
             // Execute Subset J
             result = executeCommand(Command.SUBSET_J, fodder);
-            if(!result) {
+            if (!result) {
                 logger.error("Failed to execute command: " + Command.SUBSET_J);
                 return false;
             }
@@ -268,18 +269,19 @@ public class ActiveClient extends CommandInterpreter implements Runnable
             // Expect Result TRANSFER_RESPONSE
             msgs = receiveMessageGroup();
             dir = msgs.getFirstDirectiveOf(DirectiveType.RESULT, "TRANSFER_RESPONSE");
-            if(!checkDirective(dir,DirectiveType.RESULT,"TRANSFER_RESPONSE")) {
+            if (!checkDirective(dir, DirectiveType.RESULT, "TRANSFER_RESPONSE")) {
                 return false;
             }
 
             logger.info(dir);
             return true;
-        } catch (Exception ex ) {
+        } catch (Exception ex) {
             setLockNo();
             logger.error(ex);
             return false;
         }
     }
+    // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="checkDirective(1)">
     private boolean checkDirective(Directive dir, DirectiveType expType,
