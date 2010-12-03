@@ -94,6 +94,10 @@ public class Main {
                         System.out.println("%> last parameter of /trnsfer was not an integer");
                     }
                 }
+                else if(cmd.equals("/saveconfig")) {
+                    config.save();
+                    System.out.println("%> Saved config file");
+                }
                 else
                 {
                     System.out.println("%> Invalid console command");

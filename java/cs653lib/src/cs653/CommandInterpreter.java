@@ -353,7 +353,7 @@ public class CommandInterpreter
     // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="executeCommand">
-    protected boolean executeCommand(Command command, String... args) {
+    public boolean executeCommand(Command command, String... args) {
         switch (command) {
             case IDENT: {
                 if (args.length == 1 || args.length == 2) {
