@@ -62,6 +62,13 @@ public class AttackClient {
         // Receive messages
         MessageGroup msgs = client.receiveMessageGroup();
         checkMsgsOrDie(msgs);
+        outputMsgs(msgs);
+
+        msgs.reset();
+        Directive dir = msgs
+                .getFirstDirectiveOf(DirectiveType.REQUIRE, "IDENT");
+        checkDirOrDie(dir,client);
+
 
         
     }
@@ -91,7 +98,20 @@ public class AttackClient {
     public static void outputMsgs(MessageGroup msgs) {
         if(null == msgs) return;
         while(msgs.hasNext()) {
+            Directive dir = msgs.getNext();
+            String line =
+            dir.getDirectiveType().getName() + ": ";
+            for(int i=0; i<dir.getArgCount(); i++ ) {
+                line += dir.getArg(i);
+            }
+            fromMon(line);
+        }
+    }
 
+    public static void checkDirOrDie(Directive dir, ActiveClient client ) {
+        if( null == dir ) {
+            console("A required directive was not received. Exiting.");
+            die();
         }
     }
 
