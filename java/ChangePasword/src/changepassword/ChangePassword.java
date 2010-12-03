@@ -19,7 +19,7 @@ import org.apache.log4j.Logger;
  *
  * @author rmanders
  */
-public class Main {
+public class ChangePassword {
 
     private static final String USAGE =
             "Usage: ChangePassword <account name>";

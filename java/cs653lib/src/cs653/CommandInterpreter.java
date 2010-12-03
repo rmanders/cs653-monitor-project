@@ -16,7 +16,6 @@ import java.util.LinkedList;
 import org.apache.log4j.Logger;
 import cs653.security.DiffieHellmanExchange;
 import cs653.security.KarnCodec;
-import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.math.BigInteger;
@@ -222,7 +221,13 @@ public class CommandInterpreter
             List<Directive> dirs = new LinkedList<Directive>();
             Directive dir = null;
 
-            String strPlain = processMessage(bufferIn.readLine().trim());
+            // Get and process the raw data
+            String rawData = bufferIn.readLine();
+            if( null == rawData || rawData.length() == 0) {
+                logger.error("Received Empty message: " + rawData);
+                return null;
+            }
+            String strPlain = processMessage(rawData.trim());
             
             while (!strPlain.matches("WAITING:(.)*")) {
 
@@ -234,9 +239,17 @@ public class CommandInterpreter
                     logger.debug("Received directive: " + dir);
                     dirs.add(dir);
                 }
-                strPlain = processMessage(bufferIn.readLine().trim());
-            }
-            if (!strPlain.matches("WAITING:(.)*")) {
+
+                // Get and process the raw data
+                // NOTE: readLine can be null if a quit was issued
+                rawData =  bufferIn.readLine();
+                if( null == rawData ) {
+                    break;
+                }
+                strPlain = processMessage(rawData.trim());
+            } // End While
+
+            if (strPlain.matches("WAITING:(.)*")) {
                 dir = Directive.getInstance(strPlain);
                 if( null != dir ) {
                     dirs.add(dir);
@@ -536,40 +549,46 @@ public class CommandInterpreter
     }
     // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="setLockNo">
     public boolean setLockNo() {
         try {
             PrintWriter file = new PrintWriter(new FileWriter(LOCKFILE));
             file.println("no");
             file.close();
             return true;
-        } catch (Exception ex ) {
+        } catch (Exception ex) {
             logger.error(ex);
             return false;
         }
     }
+    // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="setLockYes">
     public boolean setLockYes() {
         try {
             PrintWriter file = new PrintWriter(new FileWriter(LOCKFILE));
             file.println("yes");
             file.close();
             return true;
-        } catch (Exception ex ) {
+        } catch (Exception ex) {
             logger.error(ex);
             return false;
         }
     }
+    // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="isLockOpen">
     public boolean isLockOpen() {
         try {
-            BufferedReader reader = 
-                    new BufferedReader( new FileReader(LOCKFILE));
+            BufferedReader reader =
+                    new BufferedReader(new FileReader(LOCKFILE));
             String line = reader.readLine().trim().toLowerCase();
             reader.close();
             return (line != null && line.equals("yes"));
-        } catch (Exception ex ) {
+        } catch (Exception ex) {
             logger.error(ex);
             return false;
         }
     }
+    // </editor-fold>
 }

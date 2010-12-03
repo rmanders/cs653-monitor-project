@@ -31,7 +31,7 @@ public class Server implements Runnable {
         try {
             socServer = new ServerSocket( serverPort );
         } catch ( IOException ex ) {
-            logger.error("Server failed to start: " + ex);
+            logger.error("FATAL: Failed to create new Server Socket: " + ex);
             System.exit(1);
         }
     }
@@ -52,29 +52,11 @@ public class Server implements Runnable {
             int threadId = 0;
             while( true ) {
 
+                // Listen for a connection
+                Socket connection = socServer.accept();
+
                 // Refresh config file
                 config.load();
-
-                // CHANGE PORTS
-                String newPortStr = config.getProperty("serverPort");
-                String ident = config.getProperty("identity");
-
-                int newPort = -1;
-                try {
-                    newPort = Integer.parseInt(newPortStr);
-                } catch (NumberFormatException ex) {
-                    newPort = -1;
-                }
-                if( newPort == -1 || newPort < 2048 || newPort > 65000) {
-                    logger.error("Tried to change port but failed: port " + newPort);
-                } else {
-                    socServer.close();
-                    socServer = new ServerSocket( newPort );
-                    logger.info("[" + ident + "] REALIGNED PORT: " + newPort);
-                }
-
-                // Proceed as Normal
-                Socket connection = socServer.accept();
 
                 logger.info("Got [HOST_CONNECTION] from "
                         + connection.getRemoteSocketAddress() );
@@ -88,5 +70,4 @@ public class Server implements Runnable {
         }
         logger.debug("Terminating Server");
     }
-
 }
