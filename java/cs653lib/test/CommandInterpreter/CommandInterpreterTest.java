@@ -3,7 +3,7 @@
  * and open the template in the editor.
  */
 
-package test.CommandInterpreter;
+package CommandInterpreter;
 
 import cs653.ActiveClient;
 import org.junit.After;
@@ -42,6 +42,13 @@ public class CommandInterpreterTest {
     public void BigAssTest() {
         //ActiveClient client = new ActiveClient("localhost",8150, 8250,"andersr9","password");
         //client.launch();
+        Double g = 612686 * .01;
+        echo(g.toString());
+        echo( Integer.toString(g.intValue()) );
+    }
+
+    public static void echo (String out) {
+        System.out.println(out);
     }
 
 }

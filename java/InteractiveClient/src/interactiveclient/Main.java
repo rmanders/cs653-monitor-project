@@ -24,6 +24,7 @@ public class Main {
             "\n\n\n ==== InteractiveClient (version 0.0.0.1) ==== \n " +
             "All monitor commands are free-form text. Hit Enter to send.\n" +
             "Type \"exit\" to quit the program\n\n";
+    private static final String PROMPT = "%>";
 
     /**
      * @param args the command line arguments
@@ -52,16 +53,9 @@ public class Main {
         }
 
         ActiveClient client = new ActiveClient(config);
-        client.openConnection(config.getProperty("monitorHostname"),
-                Integer.parseInt(config.getProperty("monitorPort")));
-        try {
-            client.getSocket().setSoTimeout(750000);
-        } catch( Exception ex ) {
-            System.out.println(ex);
-            System.exit(1);
-        }
+        client.openConnection();
 
-        System.out.println("initiating login protocol");
+        echo("initiating login protocol");
         if (!client.login() ) {
             System.out.println("monitor login failed. Check the log files");
             System.exit(1);
@@ -72,13 +66,29 @@ public class Main {
         System.out.println("monitor login succeeded");
         System.out.println(MOTD);
 
-        while( loop ==  true) {
-            System.out.print("%>");
-            String inline = scanIn.nextLine().replace("%>", "");
+        SpooferServer spoofer = new SpooferServer(config);
+        echo("Starting spoofer server...");
+        spoofer.startServer();
 
+        String newServer = config.getProperty("serverHostname");
+        String newPort = config.getProperty("serverPort");
+
+        echo("trying to change Host to spoofer");
+        client.executeCommand(Command.HOST_PORT, newServer, newPort);
+        echo("SUCCESS");
+
+        while( loop ==  true) {
+            prompt();
+            String inline = scanIn.nextLine().replace("%>", "");
             String command = inline.trim();
+
+            if(null == command || command.length() == 0) {
+                continue;
+            }
+
             if( command.equals("exit")) {
                 loop = false;
+                spoofer.kill();
             } 
             else if(command.substring(0, 1).equals("/")) {
                 StringTokenizer toker = new StringTokenizer(command," ");
@@ -91,16 +101,16 @@ public class Main {
                         int q = Integer.parseInt(quant);
                         client.doTransfer(ident1, ident2, q);
                     } catch (NumberFormatException ex ) {
-                        System.out.println("%> last parameter of /trnsfer was not an integer");
+                        echo("%> last parameter of /trnsfer was not an integer");
                     }
                 }
                 else if(cmd.equals("/saveconfig")) {
                     config.save();
-                    System.out.println("%> Saved config file");
+                    echo("%> Saved config file");
                 }
                 else
                 {
-                    System.out.println("%> Invalid console command");
+                    echo("%> Invalid console command");
                 }
             }
             else {
@@ -114,4 +124,13 @@ public class Main {
         } // End while
 
     }
+
+    public static void echo(String out) {
+        System.out.println(PROMPT + out);
+    }
+
+    public static void prompt() {
+        System.out.print(PROMPT);
+    }
+
 }

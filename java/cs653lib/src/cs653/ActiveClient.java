@@ -15,6 +15,11 @@ import java.util.Random;
 /**
  *
  * @author Ryan Anderson
+ *
+ * Garden-variety active client. Use to connect to the monitor and issue
+ * basic commands. Takes care of the more complicated protocols such as
+ * logins and transfers.
+ *
  */
 public class ActiveClient extends CommandInterpreter implements Runnable
 {
@@ -45,6 +50,12 @@ public class ActiveClient extends CommandInterpreter implements Runnable
     // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="run">
+    /**
+     * I don't really use this. But just in case we need some repetition, it
+     * can be done here. See the AttackClient branch for more specialized
+     * and (hopefully) intelligent usage of an ActiveClient.
+     *
+     */
     public void run() {
 
         logger.debug("Entering Active Client run function");
@@ -76,6 +87,12 @@ public class ActiveClient extends CommandInterpreter implements Runnable
     // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="login">
+    /**
+     * Implement monitor login and alive handshake protocol
+     *
+     * @return True if login to the monitor succeeded, false otherwise
+     *
+     */
     public boolean login() {
         MessageGroup msgs;
         Directive dir;
@@ -106,8 +123,9 @@ public class ActiveClient extends CommandInterpreter implements Runnable
                 return false;
             }
 
-            // Encryption should automatically be initialized by the message
-            // receiving subsystem
+            // Incoming/Outgoing encrypted data should automatically
+            // be handled and decrypted by the CommandInterpreter subsystem
+            
             msgs = receiveMessageGroup();
             dir = msgs.getNext(DirectiveType.REQUIRE);
 
@@ -127,11 +145,7 @@ public class ActiveClient extends CommandInterpreter implements Runnable
                 }
 
                 // Store and save the cookie
-                if( CONFIG.hasProperty("cookie")) {
-                    CONFIG.setProperty("cookie", dir.getArg(1));
-                } else {
-                    CONFIG.addProperty("cookie", dir.getArg(1));
-                }
+                CONFIG.addOrSetProperty("cookie",dir.getArg(1));
                 CONFIG.save();
                 
             } else if (dir.getArg().equals("ALIVE")) {
@@ -141,6 +155,11 @@ public class ActiveClient extends CommandInterpreter implements Runnable
                     return false;
                 }
                 msgs = receiveMessageGroup();
+                dir = msgs.getFirstDirectiveOf(DirectiveType.RESULT, "ALIVE");
+                if(!this.checkDirective(dir, DirectiveType.RESULT, "ALIVE")) {
+                    logger.debug("ALIVE failed.");
+                    return false;
+                }
             } else {
                 logger.error("Login failed: expected ALIVE or PASSWORD, got: "
                         + dir);

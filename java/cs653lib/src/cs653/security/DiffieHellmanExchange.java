@@ -32,7 +32,7 @@ public class DiffieHellmanExchange {
     // <editor-fold defaultstate="collapsed" desc="getInstance(1)">
     /**
      * Use this "factory" method to load the DEFAULT key file and instance
-     * the exchange class.
+     * the exchange class. Hardcoded keys in case of filesystem issues.
      *
      * @return
      */

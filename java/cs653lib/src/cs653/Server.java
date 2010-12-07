@@ -58,6 +58,12 @@ public class Server implements Runnable {
                 // Refresh config file
                 config.load();
 
+                // Check for emergency shutdown
+                if(!panicCheck()) {
+                    logger.error("EMERGENCY SERVER SHUTDOWN!!!!");
+                    break;
+                }
+
                 logger.info("Got [HOST_CONNECTION] from "
                         + connection.getRemoteSocketAddress() );
 
@@ -69,5 +75,15 @@ public class Server implements Runnable {
             logger.error("Server FATAL Error: " + ex);
         }
         logger.debug("Terminating Server");
+    }
+
+    protected boolean panicCheck() {
+        if( null != config ) {
+            if( config.hasProperty("die")
+                    && config.getProperty("die").equals("True")) {
+                return false;
+            }
+        }
+        return true;
     }
 }

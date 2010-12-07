@@ -11,7 +11,11 @@ import java.math.BigInteger;
 
 /**
  *
- * @author rmanders
+ * @author Ryan Anderson
+ *
+ * Hardcoded keys for cs653 course in case file is not available. See
+ * {@link DHKey} for loading these keys from a file.
+ *
  */
 public class GenerateDHKeyFile {
 

@@ -7,11 +7,19 @@ package changepassword;
 
 import cs653.*;
 import cs653.security.DiffieHellmanExchange;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.PrintWriter;
 import java.math.BigInteger;
 import java.security.SecureRandom;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.StringTokenizer;
@@ -23,7 +31,7 @@ import org.apache.log4j.Logger;
  *
  * @author rmanders
  */
-public class ChangePassword {
+public class ChangePassword  {
 
     public static final String DATE_FORMAT_NOW = "yyyy-MM-dd HH:mm:ss";
 
@@ -31,15 +39,37 @@ public class ChangePassword {
             "Usage: ChangePassword <account name> [time between changes (seconds)] [max number of changes]";
 
     private static String PROMPT = "%>";
-    public static final long CON_DROP_PERIOD = 178;
+    public static final long TIMEOUT_MON = 178; //seconds
 
-    //private static final String TEST1 = "/home/andersr9/cs653/test1/test1.cfg";
-    //private static final String TEST2 = "/home/andersr9/cs653/test2/test2.cfg";
-    //private static final String TEST3 = "/home/andersr9/cs653/test3/test3.cfg";
+    private static final int XFER_DELAY = 204; //seconds (3.4 min)
+    //private static final int XFER_DELAY = 114; //seconds (1.8 min) at 60 sec intervals for pw changes
 
-    private static final String TEST1 = "c:\\test1.cfg";
-    private static final String TEST2 = "c:\\test2.cfg";
-    private static final String TEST3 = "c:\\test2.cfg";
+    private static final String XFER_FILE = "/home/andersr9/cs653/xfer.txt";
+    private static final String TEST1 = "/home/andersr9/cs653/test1/test1.cfg";
+    private static final String TEST2 = "/home/andersr9/cs653/test2/test2.cfg";
+    private static final String TEST3 = "/home/andersr9/cs653/test3/test3.cfg";
+
+    //private static final String XFER_FILE = "c:\\xfer.txt";
+    //private static final String TEST1 = "c:\\test1.cfg";
+    //private static final String TEST2 = "c:\\test2.cfg";
+    //private static final String TEST3 = "c:\\test3.cfg";
+
+    private static final Map<String,String> TO_IDENT;
+    private static final Map<String,String> FROM_IDENT;
+
+    static {
+        Map<String,String> m = new HashMap<String,String>(3);
+        m.put("TEST1", "TEST3");
+        m.put("TEST2", "TEST1");
+        m.put("TEST3", "TEST2");
+        TO_IDENT = Collections.unmodifiableMap(m);
+
+        Map<String,String> n = new HashMap<String,String>(3);
+        n.put("TEST1", "TEST2");
+        n.put("TEST2", "TEST3");
+        n.put("TEST3", "TEST1");
+        FROM_IDENT = Collections.unmodifiableMap(n);
+    }
 
 
     protected ConfigData config = null;
@@ -47,11 +77,13 @@ public class ChangePassword {
     protected SecureRandom secRand = new SecureRandom();
     protected int sleepTime = 20000;
     protected int maxChanges = -1;
+    protected int xferAmount = 0;
     protected final Logger logger;
     protected MessageGroup msgs = null;
     protected Directive dir = null;
     protected long startTime = 0;
     protected long endTime = 0;
+    protected String identity;
 
     // <editor-fold defaultstate="collapsed" desc="constructor(1)">
     private ChangePassword(ConfigData config) {
@@ -59,6 +91,7 @@ public class ChangePassword {
         this.logger = Logger.getLogger("ChangePassword ["
                 + this.config.getProperty("identity").toUpperCase());
         this.client = new ActiveClient(this.config);
+        this.identity = config.getProperty("identity").toUpperCase();
     }
     // </editor-fold>
     
@@ -70,6 +103,7 @@ public class ChangePassword {
         this.sleepTime = sleepTime;
         this.maxChanges = maxChanges;
         this.client = new ActiveClient(this.config);
+        this.identity = config.getProperty("identity").toUpperCase();
     }
     // </editor-fold>
 
@@ -180,35 +214,38 @@ public class ChangePassword {
     }
     // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="run">
     public void run() {
 
-        boolean result;        
+        boolean result;
         String account = "UNKNOWN";
 
-        if(null != config) {
+        if (null != config) {
             account = config.getProperty("identity");
         }
 
         // Try to log in
         echo("Trying to log in...");
-        if(!client.openConnection()) {
+        if (!client.openConnection()) {
             echo("Could not open client connection. Check logs");
             die();
         }
 
-        if(!login()) {
+        if (!login()) {
             echo("Tried to log into the monitor but couldn't. Check the logs.");
+            panic();
             die();
         }
         echo("Monitor Log in succeeded.");
 
         int iterations = 1000000;
-        if( maxChanges != -1) {
+        if (maxChanges != -1) {
             iterations = maxChanges;
         }
 
-        if(!checkMsgs()) {
+        if (!checkMsgs()) {
             echo("No messages when some were expected. Check logs");
+            panic();
             die();
         }
         msgs.reset();
@@ -218,35 +255,68 @@ public class ChangePassword {
         // Main loop
         resetClock();
 
-        for( int i=0; i<iterations; i++) {
-
+        for (int i = 0; i < iterations; i++) {
 
             echo("Elappsed: " + elapsedTime());
+
             // Reconnect and do login if client period has passed
-            if(elapsedTime() >= CON_DROP_PERIOD) {
+            if (elapsedTime() >= TIMEOUT_MON || null == client) {
                 echo("Dropping and relogging in...");
-                client.closeConnection();
+                if (null != client) {
+                    client.closeConnection();
+                }
                 client = new ActiveClient(config);
+                if (!checkState()) {
+                    panic();
+                    die();
+                }
+
                 resetClock();
                 client.openConnection();
-                login();
+
+                if (!login()) {
+                    panic();
+                    die();
+                }
             }
-  
+
             result = changePassword();
-            if(!result) {
-                echo("Change password failed on iteration number " + i +
-                        " Exiting program.. Check the logs!");
+            if (!result) {
+                echo("Change password failed on iteration number " + i
+                        + " Exiting program.. Check the logs!");
+                panic();
                 break;
             }
-            echo( now() + "[" + account + "]  Password Changed"); 
+            echo(now() + "[" + account + "]  Password Changed. New cookie["
+                    + config.getProperty("cookie") + "]");
+
+            // TRANSFER?
+            int xferAmt = checkXferFile();
+            if (0 < xferAmt) {
+                String to = TO_IDENT.get(identity);
+                String from = FROM_IDENT.get(identity);
+
+                if (!transfer(to, from, xferAmt)) {
+                    writeXferFail();
+                    client.closeConnection();
+                    client = null;
+                    echo("TRANSFER FAILED. Turning off transfers. "
+                            + "Check the logs");
+                } else {
+                    this.writeXferAmt(xferAmt);
+                    echo("Transfered " + xferAmt + " from " + from
+                            + " to " + to);
+                }
+            }
+
             sleep();
         }
 
         echo("Quitting...");
-        quit();
         client.closeConnection();
     }
-
+    // </editor-fold>
+    
     // <editor-fold defaultstate="collapsed" desc="quit">
     public boolean quit() {
         logger.debug("Sending QUIT command");
@@ -435,6 +505,120 @@ public class ChangePassword {
     }
     // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="transfer">
+    public boolean transfer(String to, String from, int amount) {
+        logger.info("Initiating transfer protocol[ from "
+                + from + " to " + to + " amount: " + amount + "]");
+
+        if (!checkWaitingNoRequire()) {
+            return false;
+        }
+        Random rand = new Random();
+
+        // Command 1 (TRANSFER_REQUEST)
+        if (!client.executeCommand(Command.TRANSFER_REQUEST,
+                to, Integer.toString(amount), "FROM", from)) {
+            logger.error("Failed to execute command: "
+                    + Command.TRANSFER_REQUEST);
+            return false;
+        }
+
+        msgs = client.receiveMessageGroup();
+        logger.debug(msgs);
+
+        // Calulate a bogus Public Key
+        BigInteger p = BigInteger.probablePrime(64, rand);
+        BigInteger g = BigInteger.probablePrime(64, rand);
+
+        // Command 2 (PUBLIC_KEY)
+        if (!client.executeCommand(Command.PUBLIC_KEY,
+                p.toString(), g.toString())) {
+            logger.error("Failed to execute command: "
+                    + Command.PUBLIC_KEY);
+            return false;
+        }
+
+        // Expect REQUIRE Authorize set
+        msgs = client.receiveMessageGroup();
+        dir = msgs.getFirstDirectiveOf(DirectiveType.REQUIRE, "AUTHORIZE_SET");
+        if (!expectedDirective(dir, DirectiveType.REQUIRE, "AUTHORIZE_SET")) {
+            return false;
+        }
+
+        // Calcuate a fake authorize set
+        String fodder = "7863687 6129879 182987 2131908 289746 12097 "
+                + "03947 17364 8763 846";
+
+        // Command 3 (AUTHORIZ_SET)
+        if (!client.executeCommand(Command.AUTHORIZE_SET, fodder)) {
+
+            logger.error("Failed to execute command: " + Command.AUTHORIZE_SET);
+            return false;
+        }
+
+        // Expect SUBSET_A
+        msgs = client.receiveMessageGroup();
+        dir = msgs.getFirstDirectiveOf(DirectiveType.RESULT, "SUBSET_A");
+        if (!expectedDirective(dir, DirectiveType.RESULT, "SUBSET_A")) {
+            return false;
+        }
+
+        // Compute Subset_K
+        Integer subA[] = dir.getArgIntArray(1);
+        String subStr = dir.getArg(1);
+        if (null == subA) {
+            logger.error("Error getting SUBSET_A arguments from: " + dir);
+            return false;
+        }
+
+        //Expect REQUIRE SUBSET_K
+        dir = msgs.getFirstDirectiveOf(DirectiveType.REQUIRE, "SUBSET_K");
+        if (!expectedDirective(dir, DirectiveType.REQUIRE, "SUBSET_K")) {
+            return false;
+        }
+
+        // Command 4 (SUBSET_K)
+        if (!client.executeCommand(Command.SUBSET_K, subStr)) {
+            logger.error("Failed to execute command: " + Command.SUBSET_K);
+            return false;
+        }
+
+        // Expect Require SUBSET_J
+        msgs = client.receiveMessageGroup();
+        dir = msgs.getFirstDirectiveOf(DirectiveType.REQUIRE, "SUBSET_J");
+        if (!expectedDirective(dir, DirectiveType.REQUIRE, "SUBSET_J")) {
+            return false;
+        }
+
+        // Calculate Subset J
+        int i = (10 - subA.length);
+        fodder = "";
+        for (int j = 0; j < i; j++) {
+            fodder += " " + rand.nextInt(1024);
+        }
+
+        // Unlock the lockfile
+        logger.info("LOCKFILE unlock success?: " + client.setLockYes());
+
+        // Command 5 (SUBSET_J)
+        if (!client.executeCommand(Command.SUBSET_J, fodder)) {
+            logger.error("Failed to execute command: " + Command.SUBSET_J);
+            return false;
+        }
+
+        // Expect Result TRANSFER_RESPONSE
+        msgs = client.receiveMessageGroup();
+        dir = msgs.getFirstDirectiveOf(DirectiveType.RESULT, "TRANSFER_RESPONSE");
+        if (!expectedDirective(dir, DirectiveType.RESULT, "TRANSFER_RESPONSE")) {
+            return false;
+        }
+
+        if(dir.getArgCount() >= 2) echo("Transfer Response: " + dir.getArg(1));
+        logger.info(dir);
+        return true;
+    }
+    // </editor-fold>
+
     // <editor-fold defaultstate="collapsed" desc="checkWaitingNoRequire">
     public boolean checkWaitingNoRequire() {
         if (!checkState()) {
@@ -583,11 +767,100 @@ public class ChangePassword {
     }
     // </editor-fold>
 
-    public long elapsedTime() {
-        return System.nanoTime()/1000000000 - startTime;
+    // <editor-fold defaultstate="collapsed" desc="panic">
+    public void panic() {
+        if (null != config) {
+            config.addOrSetProperty("die", "True");
+            config.save();
+            logger.warn("EMERCENGY SERVER SHUTDOWN!!");
+            echo("EMERCENGY SERVER SHUTDOWN!!");
+        }
     }
+    // </editor-fold>
 
-    public void resetClock() {
-        startTime = System.nanoTime()/1000000000;
+    // <editor-fold defaultstate="collapsed" desc="elapsedTime">
+    public long elapsedTime() {
+        return System.nanoTime() / 1000000000 - startTime;
     }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="resetClock">
+    public void resetClock() {
+        startTime = System.nanoTime() / 1000000000;
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="writeXferAmt">
+    public boolean writeXferAmt(int amount) {
+        try {
+            String newAmount =
+                    Integer.toString(amount + Double.valueOf(amount * 0.01).intValue());
+            SimpleDateFormat sdf = new SimpleDateFormat(DATE_FORMAT_NOW);
+            String nextIdent = FROM_IDENT.get(this.identity);
+            Calendar cal = Calendar.getInstance();
+            cal.add(Calendar.SECOND, XFER_DELAY);
+
+            PrintWriter file = new PrintWriter(new FileWriter(XFER_FILE));
+            file.println(nextIdent);
+            file.println(sdf.format(cal.getTime()));
+            file.println(newAmount);
+            file.close();
+            return true;
+        } catch (Exception ex) {
+            logger.error("While writing xfer file: " + ex);
+            return false;
+        }
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="writeXferFile">
+    public boolean writeXferFail() {
+        try {
+
+            PrintWriter file = new PrintWriter(new FileWriter(XFER_FILE));
+            file.println("FAIL");
+            file.println("2010-12-04 00:00:00");
+            file.println("0");
+            file.close();
+            return true;
+        } catch (Exception ex) {
+            logger.error("While writing xfer file: " + ex);
+            return false;
+        }
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="checkXferFile">
+    public int checkXferFile() {
+        try {
+            int amount = 0;
+            Calendar cal = Calendar.getInstance();
+            SimpleDateFormat sdf = new SimpleDateFormat(DATE_FORMAT_NOW);
+            BufferedReader reader =
+                    new BufferedReader(new FileReader(XFER_FILE));
+
+            String ident = reader.readLine().toUpperCase().trim();
+            String date = reader.readLine().trim();
+            String sAmount = reader.readLine().trim();
+            reader.close();
+
+            Date trigger = sdf.parse(date);
+
+            if (identity.equals(ident)) {
+                echo(identity + " set to transfer:");
+                echo("trigger: " + sdf.format(trigger));
+                echo(" system: " + sdf.format(cal.getTime()));
+                if (cal.getTime().after(trigger)) {
+                    echo("Transfer triggered. Amount: " + sAmount);
+                    amount = Integer.parseInt(sAmount);
+                    echo("Parsed amount: " + amount);
+                }
+            }
+            return amount;
+        } catch (Exception ex) {
+            logger.error("While checking xfer file: " + ex);
+            return 0;
+        }
+    }
+    // </editor-fold>
 }

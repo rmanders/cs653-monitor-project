@@ -25,17 +25,34 @@ import java.util.regex.Pattern;
 
 /**
  *
- * Responsible for interpreting commands, sending them to the monitor and
- * handling the results.
- *
  * @author Ryan Anderson
+ *
+ * Responsible for interpreting commands, sending them to the monitor and
+ * handling the results. Handles encryption/decryption so subclasses don't have
+ * to worry about it. Somewhat similar in function to Franco's MessageParser
+ * class.
+ *
  */
 public class CommandInterpreter
 {
     // Static variables
-    private static final String LOCKFILE = "/home/andersr9/lockfile.lck";
 
-    protected static boolean ENCRYPTION_ON = true;
+    /** Lock-file path **/
+    private static final String LOCKFILE = "/home/andersr9/lockfile.lck";
+    //private static final String LOCKFILE = "C:\\lockfile.txt";
+
+    /** Expect encryption or not. **/
+    protected static final boolean ENCRYPTION_ON = true;
+    
+    /** Use certificates or not (faster not to if using a lock-file) */
+    protected static final boolean CERTIFICATION_ON = false;
+
+    /** The maximum number of rounds to issue in a Zero-knowledge proof **/
+    protected static final int ZKP_MAX_ROUNDS = 20;
+
+    /** The minimum number of rounds to issue in a Zero-knowledge proof **/
+    protected static final int ZKP_MIN_ROUNDS = 10;
+
 
     private static final Pattern encPattern =
             Pattern.compile("^(RESULT):[\\s]+(IDENT)[\\s]+([a-zA-Z0-9]+)");
@@ -383,6 +400,16 @@ public class CommandInterpreter
     // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="executeCommand">
+    /**
+     *
+     * Checks command and its parameters and then send it to the monitor.
+     * most of the commands just get sent without checking, but the structure
+     * is in place if more rigorous parameter checking is required.
+     *
+     * @param command A {@link Command} object
+     * @param args Command arguments
+     * @return True if the command is a known/valid command. False otherwise.
+     */
     public boolean executeCommand(Command command, String... args) {
         switch (command) {
             case IDENT: {
@@ -445,6 +472,9 @@ public class CommandInterpreter
                 break;
             }
             case PARTICIPANT_HOST_PORT: {
+                sendCommand(command, args);
+            }
+            case PARTICIPANT_STATUS: {
                 sendCommand(command, args);
             }
             case TRANSFER_REQUEST: {
@@ -550,6 +580,12 @@ public class CommandInterpreter
     // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="setLockNo">
+    /**
+     *
+     * Set the lockfile value to no
+     *
+     * @return True if we succeeded in writing to the lockfile, false otherwise
+     */
     public boolean setLockNo() {
         try {
             PrintWriter file = new PrintWriter(new FileWriter(LOCKFILE));
@@ -564,6 +600,11 @@ public class CommandInterpreter
     // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="setLockYes">
+    /**
+     * Set the lockfile value to yes
+     *
+     * @return True if we succeeded in writing to the lockfile, false otherwise
+     */
     public boolean setLockYes() {
         try {
             PrintWriter file = new PrintWriter(new FileWriter(LOCKFILE));
@@ -578,6 +619,12 @@ public class CommandInterpreter
     // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="isLockOpen">
+    /**
+     *
+     * Reads the lock file to determine if it is safe to approve a transfer
+     *
+     * @return true if it is safe to transfer, false otherwise.
+     */
     public boolean isLockOpen() {
         try {
             BufferedReader reader =
@@ -598,10 +645,16 @@ public class CommandInterpreter
     }
     // </editor-fold>
     
+    // <editor-fold defaultstate="collapsed" desc="getCONFIG">
+    /**
+     * Gets this objects config info
+     *
+     * @return {@link ConfigData} reference
+     */
     public ConfigData getCONFIG() {
         return CONFIG;
     }
-
+    // </editor-fold>
 
 
 }

@@ -29,29 +29,32 @@ public class Transfer {
             "All monitor commands are free-form text. Hit Enter to send.\n" +
             "Type \"exit\" to quit the program\n\n";
 
+    private static final String PROMPT = "%>";
+
     private static final String TEST1 = "/home/andersr9/cs653/test1/test1.cfg";
     private static final String TEST2 = "/home/andersr9/cs653/test2/test2.cfg";
     private static final String TEST3 = "/home/andersr9/cs653/test3/test3.cfg";
+
+    private static final Logger logger = Logger.getLogger("TRANSFER");
 
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) {
 
-        SecureRandom secRand = new SecureRandom();
         boolean result = false;
-        MessageGroup msgs;
-        Directive dir;
-        Logger logger;
         String ident = "UNKNOWN";
 
-        // Check args
-        if( args.length != 3 ) {
-            System.out.println(USAGE);
-            System.exit(1);
+        // Check Arguments
+        if( args.length != 3
+                || (!args[1].toUpperCase().equals("TEST1")
+                && !args[1].toUpperCase().equals("TEST2")
+                && !args[1].toUpperCase().equals("TEST3"))){
+            echo(USAGE);
+            die();
         }
 
-        // get args into vars
+        // Format and place arguments
         String to = args[0].trim().toUpperCase();
         String from = args[1].trim().toUpperCase();
         String sAmount = args[2];
@@ -61,9 +64,8 @@ public class Transfer {
         try {
             amount = Integer.parseInt(sAmount);
         } catch (NumberFormatException ex ) {
-            System.out.println("ERROR: Paramter 3 must be an integer, got: " +
-                    sAmount);
-            System.exit(1);
+            echo("ERROR: Paramter 3 must be an integer, got: " + sAmount);
+            die();
         }
 
         // Determine which config file to open.
@@ -85,7 +87,7 @@ public class Transfer {
         }
 
         // Make a logger
-        logger = Logger.getLogger("TRANSFER_CLIENT [" + ident + "]");
+        echo("TRANSFER_CLIENT [" + ident + "]");
 
         // Attempt to load the config file quit if fails
         File file = new File(cfgFile);
@@ -122,54 +124,22 @@ public class Transfer {
         } else {
             System.out.println("TRANSFER REQUEST FAILED, No Changes made, Exiting");
         }
-
-
-        // CHANGE THE PASSWORD        
-        String pwd = new BigInteger(128, secRand).toString(32);
-        String oldPwd = config.getProperty("password");
-
-        logger.info("Trying to CHANGE_PASSWORD from [" + oldPwd + " to [" + pwd + "]");
-        result = client.executeCommand(Command.CHANGE_PASSWORD, oldPwd, pwd);
-        if(!result) {
-            logger.error("Failed to execite Change_password command, exiting with no changes");
-            client.closeConnection();
-            System.exit(1);
-        }
-
-        msgs = client.receiveMessageGroup();
-        dir = msgs.getFirstDirectiveOf(DirectiveType.RESULT, "CHANGE_PASSWORD");
-        if (null == dir ) {
-            logger.error("CHANGE PASSWORD FAILED. NO CHANGES MADE TO FILE");
-            client.closeConnection();
-            System.exit(1);
-        }         
-        logger.info("CHANGE_PASSWORD SUCCESS: " + dir );
-        String cookie = dir.getArg(1);
-        logger.info("NEW COOKIE: [" + cookie + "]");
-
-        // Set the config properties and save the config file
-        config.setProperty("password", pwd);
-        config.setProperty("cookie", cookie);
-        config.save();
-        logger.info("Configuration File Saved (Better have been!)");
-
-        logger.debug("SENDING QUIT");
-        client.sendText("QUIT");
-        msgs = client.receiveMessageGroup();
-        if( null == msgs){
-            logger.warn("Got No Result After Sending Quit.");
-        } else {
-            dir = msgs.getFirstDirectiveOf(DirectiveType.RESULT,"QUIT");
-            if( null == dir ) {
-                logger.warn("Got no Result for QUIT");
-            } else {
-                logger.info("Successfully QUIT session");
-            }
-        }
         
         logger.info("...AANND WE'RE DONE!");
         client.closeConnection();
     }
 
+    // <editor-fold defaultstate="collapsed" desc="echo">
+    static void echo(String out) {
+        System.out.println(PROMPT + out);
+        logger.debug(out);
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="die">
+    public static void die() {
+        System.exit(1);
+    }
+    // </editor-fold>
 
 }

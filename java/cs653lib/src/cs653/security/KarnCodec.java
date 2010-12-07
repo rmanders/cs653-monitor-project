@@ -17,7 +17,8 @@ import org.apache.log4j.Logger;
  * @author Ryan Anderson
  *
  * This class essentially does the same stuff as the  Karn class that the
- * course instructor provides. It's encrypts and decrypts text.
+ * course instructor provides. It's encrypts and decrypts text. Add some utility
+ * methods for my convenience.
  *
  */
 public class KarnCodec {
@@ -122,7 +123,7 @@ public class KarnCodec {
         ByteArrayOutputStream os = new ByteArrayOutputStream();
 
         // Write all bytes in plaintext to the outputstream
-        // TODO: This seems to make teh asumtion that string characters
+        // TODO: This seems to make the asumtion that string characters
         // even unicode characters and one byte...this could be dangerous.
         os.write(ptBytes, 0, ptLen);
         os.write(0);
