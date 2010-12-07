@@ -5,6 +5,7 @@
 
 package cs653;
 
+import java.math.BigInteger;
 import org.apache.log4j.Logger;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
@@ -243,6 +244,27 @@ public class Directive
             }
         }
         return results.toArray(new Integer[results.size()]);
+    }
+
+    public BigInteger[] getArgBigIntegerArray( int argNo ) {
+        if( argNo < 0 || argNo >= args.length ) {
+            logger.error("Error in getArgBigIntegerArray: Referenced argNo[" +
+                    argNo + " but only " + args.length + " args.");
+            return null;
+        }
+        List<BigInteger> results =  new LinkedList<BigInteger>();
+        StringTokenizer toker = new StringTokenizer(args[argNo]," ");
+        while( toker.hasMoreTokens() ) {
+            try {
+                BigInteger i = new BigInteger(toker.nextToken().trim());
+                results.add(i);
+            } catch (Exception ex ) {
+                logger.error("Error in getArgBigIntegerArray: Could not parse ["
+                        + args[argNo] + " into array of BigIntegers: " + ex);
+                return null;
+            }
+        }
+        return results.toArray(new BigInteger[results.size()]);
     }
 
     @Override

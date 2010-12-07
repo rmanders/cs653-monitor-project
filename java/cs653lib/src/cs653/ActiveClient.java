@@ -8,6 +8,7 @@ package cs653;
 import java.util.NoSuchElementException;
 import org.apache.log4j.Logger;
 import cs653.security.DiffieHellmanExchange;
+import cs653.security.RSAKeys;
 import java.math.BigInteger;
 import java.net.Socket;
 import java.util.Random;
@@ -201,14 +202,14 @@ public class ActiveClient extends CommandInterpreter implements Runnable
                 return false;
             }
 
+            RSAKeys myKeys = RSAKeys.getInstance();
+
             MessageGroup msgs = receiveMessageGroup();
             System.out.println(msgs);
 
             // Execute Public Key
-            BigInteger p = BigInteger.probablePrime(64, rand);
-            BigInteger g = BigInteger.probablePrime(64, rand);
             result = executeCommand(Command.PUBLIC_KEY,
-                    p.toString(), g.toString());
+                    myKeys.getV().toString(), myKeys.getN().toString());
             if (!result) {
                 logger.error("Failed to execute command: "
                         + Command.PUBLIC_KEY);

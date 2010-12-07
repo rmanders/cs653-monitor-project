@@ -94,7 +94,7 @@ public class ChangePassword  {
         this.identity = config.getProperty("identity").toUpperCase();
     }
     // </editor-fold>
-    
+   
     // <editor-fold defaultstate="collapsed" desc="constructor(2)">
     private ChangePassword(ConfigData config, int sleepTime, int maxChanges) {
         this.config = config;
@@ -201,7 +201,7 @@ public class ChangePassword  {
         }
 
         // Make an instance of myself
-        
+       
         ChangePassword instance =
                 ChangePassword.getInstance(config, sleep, maxLoops);
         if (null == instance) {
@@ -316,11 +316,11 @@ public class ChangePassword  {
         client.closeConnection();
     }
     // </editor-fold>
-    
+   
     // <editor-fold defaultstate="collapsed" desc="quit">
     public boolean quit() {
         logger.debug("Sending QUIT command");
-        
+       
         if (!checkWaitingNoRequire()) {
             return false;
         }        
@@ -418,7 +418,7 @@ public class ChangePassword  {
             logger.error("Could not instance DiffieHellman");
             return false;
         }
-        
+       
         client.setDhe(dhe);
 
         // Execute the ident command
@@ -864,3 +864,4 @@ public class ChangePassword  {
     }
     // </editor-fold>
 }
+

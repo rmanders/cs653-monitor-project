@@ -10,14 +10,26 @@ import org.apache.log4j.Logger;
 import cs653.security.DiffieHellmanExchange;
 import cs653.security.KarnCodec;
 import java.math.BigInteger;
+
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Random;
 
 /**
  *
  * @author Ryan Anderson
  *
- * A server thread that handles an individual incoming connection
+ * A server thread that handles an individual incoming connection.
  *
+ * <p>
+ * Our server thread is kind of mean. If at any point of a transfer request
+ * it doesn't like what it sees, it'll just return and drop the connection
+ * instead of responding with a transfer declined (unless it is ourselves
+ * who is requesting the transaction). If we REALLY wanted to be mean, we could
+ * deliberately hold this connection open but do nothing for as long as it takes
+ * the monitor to timeout. This will cause the attacker's client to waste their
+ * monitor connection time.
+ *</p>
  *
  */
 public class ServerThread extends CommandInterpreter implements Runnable {
@@ -149,6 +161,20 @@ public class ServerThread extends CommandInterpreter implements Runnable {
     }
     // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="transfer">
+    /**
+     *
+     * Implements the transfer protocol and Zero-Knowledge proof authentication.
+     * If all three servers and all of our clients are running on the same
+     * machine, we can also use a lock file for added security.
+     *
+     * For now I assume everything is on the same machine so if you're testing
+     * in any kind of different setup, you better modify this code!
+     *
+     * @param msgs {@link MessageGroup} containing latest monitor messages
+     *
+     * @return True if the transfer was accepted, false otherwise.
+     */
     protected boolean handleTransfer(MessageGroup msgs) {
 
         // Ok folks, we now have a transfer request.
@@ -156,91 +182,141 @@ public class ServerThread extends CommandInterpreter implements Runnable {
         Directive dir = msgs.getNext(DirectiveType.TRANSFER);
         logger.info("Transfer request received: " + dir);
 
-        // Expect public key
-        //msgs = receiveMessageGroup();
+        // Expect public key in existing message group
         dir = msgs.getNext(DirectiveType.RESULT);
-        if(!checkDirective(dir, DirectiveType.RESULT,"PUBLIC_KEY")) {
-            return false; }
-
-        // TODO: do public key stuff here
-        String keys[] = dir.getArgStringArray(1);
-        if( null == keys ) {
-            logger.error("Error while retrieving public keys from initiator's "
-                    + "RESULT PUBLIC_KEYS directive.");
+        if (!checkDirective(dir, DirectiveType.RESULT, "PUBLIC_KEY")) {
             return false;
         }
-        BigInteger v = new BigInteger(keys[0],32);
-        BigInteger n = new BigInteger(keys[1],32);
+
+        // Store the initiators public key locally
+        String keys[] = dir.getArgStringArray(1);
+        if (null == keys || keys.length != 2) {
+            logger.error("Error while retrieving public keys from initiator's "
+                    + "RESULT PUBLIC_KEYS directive: " + dir);
+            return false;
+        }
+        BigInteger v = new BigInteger(keys[0], 10);
+        BigInteger n = new BigInteger(keys[1], 10);
         logger.debug("Got keys: " + v + ", " + n);
 
-        // TODO: so certificate stuff here
+        // TODO: Maybe add certificate stuff here, but this will eat up network
+        // time. Don't worry about it if we use the lock file. We need xfers to
+        // be fast as we can get em so we don't time out before we need to.
 
         // Execute Rounds
-        boolean result = executeCommand(Command.ROUNDS, "10");
-        if( !result ) {
+        boolean result = executeCommand(Command.ROUNDS,
+                String.valueOf(ZKP_MIN_ROUNDS));
+        if (!result) {
             logger.error("Failed to execute command: " + Command.ROUNDS);
             return false;
         }
 
-        // Expect authorize set
+        // Expect AUTHORIZE_SET
         msgs = receiveMessageGroup();
         dir = msgs.getNext(DirectiveType.RESULT);
-        if(!checkDirective(dir, DirectiveType.RESULT,"AUTHORIZE_SET")) {
-            return false; }
+        if (!checkDirective(dir, DirectiveType.RESULT, "AUTHORIZE_SET")) {
+            return false;
+        }
 
-        //TODO: Compute SUBSET_A here
-        StringBuilder fodder = new StringBuilder();
-        Random rand = new Random();
-       for( int i=0; i<10; i++ ) {
-           if(rand.nextBoolean()) {
-               fodder.append(" ").append(i);
-           }
-       }
+        BigInteger authSet[] = dir.getArgBigIntegerArray(1);
+        if (null == authSet || authSet.length < ZKP_MIN_ROUNDS) {
+            logger.error("AuthorizeSet Results not formated propertly:" + dir);
+        }
 
         // Expect REQUIRE SUBSET_A
         dir = msgs.getNext(DirectiveType.REQUIRE);
-        if(!checkDirective(dir, DirectiveType.RESULT,"SUBSET_A")) {
-            return false; }
+        if (!checkDirective(dir, DirectiveType.RESULT, "SUBSET_A")) {
+            return false;
+        }
+
+        // Compute SUBSET_A
+        StringBuilder fodder = new StringBuilder();
+        List<Integer> subsetA = new LinkedList<Integer>();
+        Random rand = new Random();
+
+        for (int i = 0; i < ZKP_MIN_ROUNDS; i++) {
+            if (rand.nextBoolean()) {
+                subsetA.add(i);
+                fodder.append(" ").append(i);
+            }
+        }
 
         // Execute SUBSET_A
-        result = executeCommand(Command.SUBSET_A,fodder.toString());
-        if( !result ) {
+        result = executeCommand(Command.SUBSET_A, fodder.toString());
+        if (!result) {
             logger.error("Failed to execute command: " + Command.SUBSET_A);
             return false;
         }
 
-        // Expect SUBSET_K and SUBSET_J
+        // Expect SUBSET_K
         msgs = receiveMessageGroup();
         dir = msgs.getFirstDirectiveOf(DirectiveType.RESULT, "SUBSET_K");
-        if(!checkDirective(dir, DirectiveType.RESULT,"SUBSET_K")) {
-            return false; }
+        if (!checkDirective(dir, DirectiveType.RESULT, "SUBSET_K")) {
+            return false;
+        }
 
-        // Todo: Store subset j
+        BigInteger subsetK[] = dir.getArgBigIntegerArray(1);
+        if (null == subsetK || subsetK.length != subsetA.size()) {
+            logger.error("Unexpected format or number of elements in subsetK: "
+                    + dir);
+            return false;
+        }
 
+        // Verify subsetK (yes, i know this is ugly... but I am short on time,
+        // if you don't like it... feel free to contribute and change it
+        // yourself)
+        result = true;
+        int j = 0;
+        for (int i : subsetA) {
+            if (!subsetK[j++].equals(authSet[i].multiply(v).mod(n))) {
+                result = false;
+                break;
+            }
+        }
+
+        if (!result) {
+            logger.warn("Invalid subsetK from initiator. Dropping connection..");
+            return false;
+        }
+
+        // Expect SUBSET_J
         dir = msgs.getFirstDirectiveOf(DirectiveType.RESULT, "SUBSET_J");
-        if(!checkDirective(dir, DirectiveType.RESULT,"SUBSET_J")) {
-            return false; }
+        if (!checkDirective(dir, DirectiveType.RESULT, "SUBSET_J")) {
+            return false;
+        }
 
-        // Todo: Store subset k
-        // Todo: process subset k & j and decide on result
-        boolean transferOk = isLockOpen();
+        BigInteger subsetJ[] = dir.getArgBigIntegerArray(1);
+
+        // Same as before with subset_k
+        result = true;
+        j = 0;
+        for (int i : subsetA) {
+            if (!subsetJ[j++].equals(authSet[i])) {
+                result = false;
+                break;
+            }
+        }
+
+        //boolean transferOk = isLockOpen(); // (if only want to use lockfile)
+        boolean transferOk = isLockOpen() && result;
         logger.debug("Transfer OK?: " + transferOk);
-        logger.debug("Set lock to NO succeded?: " + setLockNo() );
+        logger.debug("Set lock to NO succeded?: " + setLockNo());
 
         // Expect transfer response
         dir = msgs.getNext(DirectiveType.REQUIRE);
-        if(!checkDirective(dir, DirectiveType.REQUIRE,"TRANSFER_RESPONSE")) {
-            return false; }
+        if (!checkDirective(dir, DirectiveType.REQUIRE, "TRANSFER_RESPONSE")) {
+            return false;
+        }
 
         //Execute Transfer Response
-        if(transferOk) {
-            result = executeCommand(Command.TRANSFER_RESPONSE,"ACCEPT");
+        if (transferOk) {
+            result = executeCommand(Command.TRANSFER_RESPONSE, "ACCEPT");
             logger.warn("(!) Transfer Request was ACCEPTED");
         } else {
-            result = executeCommand(Command.TRANSFER_RESPONSE,"DECLINE");
+            result = executeCommand(Command.TRANSFER_RESPONSE, "DECLINE");
             logger.warn("Transfer Request was DECLINED");
         }
-        if( !result ) {
+        if (!result) {
             logger.error("Failed to execute command: "
                     + Command.TRANSFER_RESPONSE);
             return false;
@@ -249,8 +325,9 @@ public class ServerThread extends CommandInterpreter implements Runnable {
         // Expect QUIT
         msgs = receiveMessageGroup();
         dir = msgs.getNext(DirectiveType.REQUIRE);
-        if(!checkDirective(dir, DirectiveType.REQUIRE,"QUIT")) {
-            return false; }
+        if (!checkDirective(dir, DirectiveType.REQUIRE, "QUIT")) {
+            return false;
+        }
 
         // Execute QUIT command
         result = executeCommand(Command.QUIT);
@@ -261,16 +338,19 @@ public class ServerThread extends CommandInterpreter implements Runnable {
 
         return true;
     }
+    // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="run">
     public void run() {
-        
-        if( !doLoginHandshake() ) {
+
+        if (!doLoginHandshake()) {
             logger.error("ServerThread Login handshake FAILED");
         }
         logger.debug("Server Thread Login handshake SUCCEEDED");
-        
+
         logger.debug("Exiting Local Server thread");
     }
+    // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="checkDirective(1)">
     /**
@@ -316,4 +396,5 @@ public class ServerThread extends CommandInterpreter implements Runnable {
         return checkDirective(dir, expType, null);
     }
     // </editor-fold>
+
 }
