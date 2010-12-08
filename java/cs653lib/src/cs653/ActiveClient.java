@@ -9,6 +9,7 @@ import java.util.NoSuchElementException;
 import org.apache.log4j.Logger;
 import cs653.security.DiffieHellmanExchange;
 import cs653.security.RSAKeys;
+import java.io.File;
 import java.math.BigInteger;
 import java.net.Socket;
 import java.util.Arrays;
@@ -25,23 +26,129 @@ import java.util.Random;
  */
 public class ActiveClient extends CommandInterpreter implements Runnable
 {
-    private Thread runner = null;
+    /** Used for static method debugging **/
+    private static final Logger lgrDebug = Logger.getLogger(ActiveClient.class);
+
+    /** Used for squaring large integers **/
     private static final BigInteger TWO = new BigInteger("2",10);
 
-    public ActiveClient( String monitorHost, int monitorPort, 
-            String serverHostname, int serverPort,
-            String identity, String password ) {
-        super( monitorHost, monitorPort, serverHostname, serverPort,
-                identity, password, Logger.getLogger(ActiveClient.class));
-    }
+    /** Used for running an active client thread ***/
+    private Thread runner = null;
 
-    public ActiveClient( String configfile ) {
-        super(configfile, Logger.getLogger(ActiveClient.class));
-    }
+    /** Holds the current message group returned from the monitor **/
+    protected MessageGroup msgs;
 
-    public ActiveClient( ConfigData config ) {
+    /** Holds the current Directive being examined in the message group **/
+    protected Directive dir;
+    
+    /** The client's secret key **/
+    protected final BigInteger keyS;
+    
+    /** The client's public key modulus **/
+    protected final BigInteger keyN;
+
+    /** The client's public key v-value: keyV = keyS^2 mod keyN **/
+    protected final BigInteger keyV;
+
+    private ActiveClient( ConfigData config ) {
         super(config, Logger.getLogger(ActiveClient.class));
+        this.keyS = new BigInteger(config.getProperty("keyS"),10);
+        this.keyN = new BigInteger(config.getProperty("keyN"),10);
+        this.keyV = new BigInteger(config.getProperty("keyV"),10);
     }
+
+    // <editor-fold defaultstate="collapsed" desc="getInstance(1)">
+    /**
+     * Primary ActiveClient factory
+     *
+     * @param config {@link ConfigData} object
+     *
+     * @return
+     */
+    public static ActiveClient getInstance(ConfigData config) {
+        if (!checkAndInitConfigData(config)) {
+            return null;
+        }
+        return new ActiveClient(config);
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="getInstance(2)">
+   /**
+    * Factory that makes an active client from a config file path
+    *
+    * @param configfile path to config file
+    *
+    * @return
+    */
+    public static ActiveClient getInstance(String configfile) {
+        File file = new File(configfile);
+        if (null == file || !file.exists() || !file.canRead()) {
+            lgrDebug.error("in getInstance: config file does not exists or "
+                    + "is not readable: " + configfile);
+            return null;
+        }
+
+        ConfigData config = ConfigData.getInstance(configfile);
+        if (null == config) {
+            lgrDebug.error("in getInstance: Could nto load config file: "
+                    + configfile);
+            return null;
+        }
+        return getInstance(config);
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="getInstance(3)">
+    /**
+     *
+     * @param monitorHostname Hostname or ip-address of the monitor
+     * @param monitorPort Monitor port
+     * @param serverHostname hostname or ip-address of the passive server
+     * @param serverPort port of the passive server
+     * @param identity account identity to connect to the monitor with
+     * @param password the password to connect to the monitor with
+     * @param cookie the monitor cookie
+     *
+     * @return
+     */
+    public static ActiveClient getInstance(
+            String monitorHostname, int monitorPort,
+            String serverHostname, int serverPort,
+            String identity, String password, String cookie) {
+        ConfigData config = ConfigData.getInstance("ActiveClient.cfg");
+        config.addOrSetProperty("identity", identity);
+        config.addOrSetProperty("password", password);
+        config.addOrSetProperty("cookie", cookie);
+        config.addOrSetProperty("monitorHostname", monitorHostname);
+        config.addOrSetProperty("monitorPort", String.valueOf(monitorPort));
+        config.addOrSetProperty("serverHostname", serverHostname);
+        config.addOrSetProperty("serverPort", String.valueOf(serverPort));
+        return getInstance(config);
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="getDir">
+    /**
+     * Gets the currently processing/or most recently processed directive
+     *
+     * @return
+     */
+    public Directive getDir() {
+        return dir;
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="getMsgs">
+    /**
+     * Gets the current messageGroup returned from the monitor
+     * 
+     * @return
+     */
+    public MessageGroup getMsgs() {
+        return msgs;
+    }
+    // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="launch">
     public void launch() {
@@ -97,8 +204,6 @@ public class ActiveClient extends CommandInterpreter implements Runnable
      *
      */
     public boolean login() {
-        MessageGroup msgs;
-        Directive dir;
         boolean result;
         try {
 
@@ -373,4 +478,95 @@ public class ActiveClient extends CommandInterpreter implements Runnable
         return checkDirective(dir, expType, null);
     }
     // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="checkAndInitConfigData">
+    /**
+     * Checks the {@link ConfigData} object for the required properties that
+     * are necessary for the ActiveClient to operate. It also
+     * generates a new RSA key pair if one is needed.
+     *
+     * @param config 
+     *
+     * @return true if the required properties are present, false otherwise
+     */
+    public static boolean checkAndInitConfigData(final ConfigData config) {
+        if (null == config) {
+            return false;
+        }
+        if (!config.hasProperty("identity")
+                || !config.hasProperty("cookie")
+                || !config.hasProperty("monitorHostname")
+                || !config.hasProperty("monitorPort")
+                || !config.hasProperty("serverHostname")
+                || !config.hasProperty("serverPort")
+                || !config.hasProperty("password")) {
+            lgrDebug.error("Invalid config file format");
+            return false;
+        }
+        if (!config.hasProperty("keyS")
+                || !config.hasProperty("KeyN")
+                || !config.hasProperty("keyV")) {
+            RSAKeys keys = RSAKeys.getInstance();
+            config.addOrSetProperty("keyS", keys.getS().toString(10));
+            config.addOrSetProperty("keyN", keys.getN().toString(10));
+            config.addOrSetProperty("keyV", keys.getV().toString(10));
+            config.save();
+        }
+
+        // Test string formatting of numbers
+        try {
+            int testInt;
+            BigInteger testBig;
+            testInt = Integer.parseInt(config.getProperty("monitorPort"));
+            testInt = Integer.parseInt(config.getProperty("serverPort"));
+            testBig = new BigInteger(config.getProperty("keyS"),10);
+            testBig = new BigInteger(config.getProperty("keyN"),10);
+            testBig = new BigInteger(config.getProperty("keyV"),10);
+        } catch ( NumberFormatException ex ) {
+            lgrDebug.error("Invalid number format in config file: " + ex);
+            return false;
+        }
+
+        return true;
+    }
+    // </editor-fold>
+
+    private boolean expect(DirectiveType dt, String arg0) {
+        if( null == msgs ) {
+            error("The MessageGroup is null when looking for directive: "
+                    + dt);
+            return false;
+        }
+        if( null == arg0 ) {
+            dir = msgs.getFirstDirectiveOf(dt);
+            if( null == dir ) {
+                error("Expected Directive: " + dt + " but none were found in "
+                        + "the current MessageGroup");
+                return false;
+            }
+        } else {
+            dir = msgs.getFirstDirectiveOf(dt, arg0);
+            if( null == dir ) {
+
+            }
+        }
+        return true;
+    }
+
+    public void error(Object obj) {
+        logger.error(obj);
+    }
+
+    public void warn(Object obj) {
+        logger.warn(obj);
+    }
+
+    public void debug(Object obj) {
+        logger.debug(obj);
+    }
+
+    public void info(Object obj) {
+        logger.info(obj);
+    }
+
 }

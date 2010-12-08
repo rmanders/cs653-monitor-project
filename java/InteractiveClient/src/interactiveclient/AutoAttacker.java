@@ -117,8 +117,8 @@ public class AutoAttacker  {
         this.amount = amount;
         this.logger = Logger.getLogger("Interactive Client ["
                 + this.configA.getProperty("identity").toUpperCase() + "]");
-        this.attacker = new ActiveClient(this.configA);
-        this.victim = new ActiveClient(this.configV);
+        this.attacker = ActiveClient.getInstance(this.configA);
+        this.victim = ActiveClient.getInstance(this.configV);
         this.identity = configA.getProperty("identity").toUpperCase();
         this.dumpFile = dumpFile;
     }

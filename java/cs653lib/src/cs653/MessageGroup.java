@@ -85,6 +85,15 @@ public class MessageGroup
         return null;
     }
     
+    public Directive getFirstDirectiveOf( DirectiveType directive ) {
+        for( Directive dir : messages ) {
+            if( dir.getDirectiveType() == directive ) {
+                return dir;
+            }
+        }
+        return null;
+    }
+
     public int getCountOfDirective( DirectiveType directive ) {
         int count = 0;
         for( Directive d : messages ) {

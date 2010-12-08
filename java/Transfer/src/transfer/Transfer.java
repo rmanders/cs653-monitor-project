@@ -103,7 +103,7 @@ public class Transfer {
         }
 
         // Create a new Active client with the current config
-        ActiveClient client = new ActiveClient(config);
+        ActiveClient client = ActiveClient.getInstance(config);
         client.openConnection(config.getProperty("monitorHostname"),
                 Integer.parseInt(config.getProperty("monitorPort")));
 

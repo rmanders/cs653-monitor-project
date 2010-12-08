@@ -94,8 +94,8 @@ public class AttackClient  {
         this.configV = configV;
         this.logger = Logger.getLogger("Interactive Client ["
                 + this.configA.getProperty("identity").toUpperCase());
-        this.client = new ActiveClient(this.configA);
-        this.victim = new ActiveClient(configV);
+        this.client = ActiveClient.getInstance(this.configA);
+        this.victim = ActiveClient.getInstance(configV);
         this.identity = config.getProperty("identity").toUpperCase();
     }
     // </editor-fold>
@@ -220,7 +220,7 @@ public class AttackClient  {
         spoofer.kill();
         client.closeConnection();
 
-        client = new ActiveClient(configA);
+        client = ActiveClient.getInstance(configA);
         client.openConnection();
         ping();
         client.closeConnection();
@@ -931,6 +931,7 @@ public class AttackClient  {
                 }
             }
         } // End while
-
     }
+
+
 }

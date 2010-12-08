@@ -17,7 +17,7 @@ public class TestMain {
 
         run = true;
         ConfigData config = ConfigData.getInstance("c:\\test1.cfg");
-        ActiveClient client = new ActiveClient("c:\\test1.cfg");
+        ActiveClient client = ActiveClient.getInstance("c:\\test1.cfg");
         Server server = new Server(config);
         server.startServer();
         client.openConnection("localhost", 8150);
