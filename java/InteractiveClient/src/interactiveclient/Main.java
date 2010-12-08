@@ -101,7 +101,7 @@ public class Main {
                         int q = Integer.parseInt(quant);
                         client.doTransfer(ident1, ident2, q);
                     } catch (NumberFormatException ex ) {
-                        echo("%> last parameter of /trnsfer was not an integer");
+                        echo("%> last parameter of /transfer was not an integer");
                     }
                 }
                 else if(cmd.equals("/saveconfig")) {

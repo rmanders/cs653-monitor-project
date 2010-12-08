@@ -38,8 +38,8 @@ public class CommandInterpreter
     // Static variables
 
     /** Lock-file path **/
-    private static final String LOCKFILE = "/home/andersr9/lockfile.lck";
-    //private static final String LOCKFILE = "C:\\lockfile.txt";
+    //private static final String LOCKFILE = "/home/andersr9/lockfile.lck";
+    private static final String LOCKFILE = "C:\\lockfile.txt";
 
     /** Expect encryption or not. **/
     protected static final boolean ENCRYPTION_ON = true;

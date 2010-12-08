@@ -32,7 +32,7 @@ import org.apache.log4j.Logger;
  *
  * @author rmanders
  */
-public class DefaultInteractive  {
+public class AttackClient  {
 
     public static final String DATE_FORMAT_NOW = "yyyy-MM-dd HH:mm:ss";
 
@@ -89,7 +89,7 @@ public class DefaultInteractive  {
     protected String identity;
 
     // <editor-fold defaultstate="collapsed" desc="constructor(1)">
-    private DefaultInteractive(ConfigData config, ConfigData configV) {
+    private AttackClient(ConfigData config, ConfigData configV) {
         this.configA = config;
         this.configV = configV;
         this.logger = Logger.getLogger("Interactive Client ["
@@ -101,11 +101,11 @@ public class DefaultInteractive  {
     // </editor-fold>
     
     // <editor-fold defaultstate="collapsed" desc="getInstance(1)">
-    public static DefaultInteractive getInstance(ConfigData config, ConfigData configV) {
+    public static AttackClient getInstance(ConfigData config, ConfigData configV) {
         if (!checkConfig(config) || !checkConfig(configV)) {
             return null;
         }
-        return new DefaultInteractive(config, configV);
+        return new AttackClient(config, configV);
     }
     // </editor-fold>
 
@@ -154,8 +154,8 @@ public class DefaultInteractive  {
 
         // Make an instance of myself
         
-        DefaultInteractive instance =
-                DefaultInteractive.getInstance(configA,configV);
+        AttackClient instance =
+                AttackClient.getInstance(configA,configV);
         if (null == instance) {
             echo("FATAL: couldn't get an instance of myself. Check the logs.");
         }

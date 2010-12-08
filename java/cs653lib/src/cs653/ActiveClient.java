@@ -11,6 +11,7 @@ import cs653.security.DiffieHellmanExchange;
 import cs653.security.RSAKeys;
 import java.math.BigInteger;
 import java.net.Socket;
+import java.util.Arrays;
 import java.util.Random;
 
 /**
@@ -25,6 +26,7 @@ import java.util.Random;
 public class ActiveClient extends CommandInterpreter implements Runnable
 {
     private Thread runner = null;
+    private static final BigInteger TWO = new BigInteger("2",10);
 
     public ActiveClient( String monitorHost, int monitorPort, 
             String serverHostname, int serverPort,
@@ -194,6 +196,7 @@ public class ActiveClient extends CommandInterpreter implements Runnable
                     + from + " to " + to + " amount: " + amount + "]");
             Random rand = new Random();
 
+            // Execute TRANSFER_REQUEST
             boolean result = executeCommand(Command.TRANSFER_REQUEST,
                     to, Integer.toString(amount), "FROM", from);
             if (!result) {
@@ -202,12 +205,18 @@ public class ActiveClient extends CommandInterpreter implements Runnable
                 return false;
             }
 
-            RSAKeys myKeys = RSAKeys.getInstance();
-
+            // Expect REQUIRE: PUBLIC_KEY
             MessageGroup msgs = receiveMessageGroup();
             System.out.println(msgs);
+            Directive dir = msgs.getFirstDirectiveOf(DirectiveType.REQUIRE, "PUBLIC_KEY");
+            if(!this.checkDirective(dir, DirectiveType.REQUIRE, "PUBLIC_KEY")) {
+                return false;
+            }
 
-            // Execute Public Key
+            // Get my public key
+            RSAKeys myKeys = RSAKeys.getInstance();
+
+            // Execute PUBLIC_KEY
             result = executeCommand(Command.PUBLIC_KEY,
                     myKeys.getV().toString(), myKeys.getN().toString());
             if (!result) {
@@ -216,18 +225,39 @@ public class ActiveClient extends CommandInterpreter implements Runnable
                 return false;
             }
 
+            // Expect RESULT: ROUNDS
+            msgs = receiveMessageGroup();
+            dir = msgs.getFirstDirectiveOf(DirectiveType.RESULT, "ROUNDS");
+            if (!checkDirective(dir, DirectiveType.RESULT, "ROUNDS")) {
+                return false;
+            }
+
+            final int rounds;
+            try {
+                rounds = Integer.parseInt(dir.getArg(1));
+            } catch (NumberFormatException ex ) {
+                logger.error("Could not parse the number of rounds into "
+                        + "an int: " + dir);
+                return false;
+            }
+
             // Expect REQUIRE Authorize set
             msgs = receiveMessageGroup();
-            Directive dir = msgs.getFirstDirectiveOf(DirectiveType.REQUIRE, "AUTHORIZE_SET");
+            dir = msgs.getFirstDirectiveOf(DirectiveType.REQUIRE, "AUTHORIZE_SET");
             if (!checkDirective(dir, DirectiveType.REQUIRE, "AUTHORIZE_SET")) {
                 return false;
             }
 
-            // Calcuate athorize set
-            String fodder = "7863687 6129879 182987 2131908 289746 12097 03947 17364 8763 846";
+            // Calcuate AUTHORIZE_SET
+            StringBuilder fodder = new StringBuilder();
+            BigInteger authSet[] = new BigInteger[rounds];
+            for(int i=0; i<rounds; i++) {
+                authSet[i] = new BigInteger(256,rand);
+                fodder.append(" ").append(authSet[i]);
+            }
 
-            // Execute Authorize Set
-            result = executeCommand(Command.AUTHORIZE_SET, fodder);
+            // Execute AUTHORIZE_SET
+            result = executeCommand(Command.AUTHORIZE_SET, fodder.toString());
             if (!result) {
                 logger.error("Failed to execute command: " + Command.AUTHORIZE_SET);
                 return false;
@@ -240,11 +270,11 @@ public class ActiveClient extends CommandInterpreter implements Runnable
                 return false;
             }
 
-            // Compute Subset_K
-            Integer subA[] = dir.getArgIntArray(1);
-            String subStr = dir.getArg(1);
-            if (null == subA) {
-                logger.error("Error getting SUBSET_A arguments from: " + dir);
+            //store SUBSET_A
+            Integer subsetA[] = dir.getArgIntArray(1);
+            if(null == subsetA || subsetA.length > rounds) {
+                logger.error("Unable to parse SUBSET_A from result or SUBSET_A "
+                        + "has more values than rounds: " + dir);
                 return false;
             }
 
@@ -255,8 +285,18 @@ public class ActiveClient extends CommandInterpreter implements Runnable
             }
 
 
+            // Compute SUBSET_K
+            BigInteger subsetK[] = new BigInteger[subsetA.length];
+            int j=0;
+            for(Integer i : subsetA) {
+                subsetK[j++] = authSet[i].multiply(myKeys.getS())
+                        .modPow(TWO, myKeys.getN());
+                fodder.append(" ").append(subsetK[j-1]);
+            }
+
+
             // Execute SubsetK
-            result = executeCommand(Command.SUBSET_K, subStr);
+            result = executeCommand(Command.SUBSET_K, fodder.toString());
             if (!result) {
                 logger.error("Failed to execute command: " + Command.SUBSET_K);
                 return false;
@@ -269,18 +309,26 @@ public class ActiveClient extends CommandInterpreter implements Runnable
                 return false;
             }
 
-            // Calculate Subset J
-            int i = (10 - subA.length);
-            fodder = "";
-            for (int j = 0; j < i; j++) {
-                fodder += " " + rand.nextInt(1024);
+            // Compute SUBSET_J (more fugly code.... so sue me)
+            fodder = new StringBuilder();
+            Arrays.sort(subsetA);
+            BigInteger subsetJ[] = new BigInteger[rounds-subsetA.length];
+            j=0;
+            int k=0;
+            for(int i=0; i<rounds; i++) {
+                if(subsetA[j] == i) {
+                    j++;
+                } else {
+                    subsetJ[k++] = authSet[i].modPow(TWO, myKeys.getN());
+                    fodder.append(" ").append(subsetJ[k-1]);
+                }
             }
 
             // Unlock the lockfile
             logger.info("LOCKFILE unlock success?: " + setLockYes());
 
             // Execute Subset J
-            result = executeCommand(Command.SUBSET_J, fodder);
+            result = executeCommand(Command.SUBSET_J, fodder.toString());
             if (!result) {
                 logger.error("Failed to execute command: " + Command.SUBSET_J);
                 return false;
