@@ -209,11 +209,7 @@ public class ActiveClient extends CommandInterpreter implements Runnable
 
             // Expect a request for IDENT
             msgs = receiveMessageGroup();
-            dir = msgs.getNext(DirectiveType.REQUIRE);
-
-            if (!dir.getArg().equals("IDENT")) {
-                logger.error("Login failed: Expected IDENT, got: "
-                        + dir.getArg());
+            if(!expect(DirectiveType.REQUIRE,"IDENT")) {
                 return false;
             }
 
@@ -235,21 +231,20 @@ public class ActiveClient extends CommandInterpreter implements Runnable
             // be handled and decrypted by the CommandInterpreter subsystem
             
             msgs = receiveMessageGroup();
-            dir = msgs.getNext(DirectiveType.REQUIRE);
+            if(!expect(DirectiveType.REQUIRE)) {
+                return false;
+            }
 
             if (dir.getArg().equals("PASSWORD")) {
-                result = executeCommand(Command.PASSWORD);
-                if (!result) {
+                if(!executeCommand(Command.PASSWORD)) {
                     logger.error("Failed to execute PASSWORD command");
                     return false;
                 }
+
                 // Expect cookie
                 msgs = receiveMessageGroup();
-                dir = msgs.getNext(DirectiveType.RESULT);
-                Command cmd = Command.valueOf(dir.getArg());
-                if (cmd != Command.PASSWORD) {
-                    logger.error("Login failed: expected password result, got: "
-                            + dir);
+                if(!expect(DirectiveType.RESULT,"PASSWORD")) {
+                    return false;
                 }
 
                 // Store and save the cookie
@@ -257,15 +252,12 @@ public class ActiveClient extends CommandInterpreter implements Runnable
                 CONFIG.save();
                 
             } else if (dir.getArg().equals("ALIVE")) {
-                result = executeCommand(Command.ALIVE);
-                if (!result) {
+                if(!executeCommand(Command.ALIVE)) {
                     logger.error("Failed to execute ALIVE command");
                     return false;
                 }
                 msgs = receiveMessageGroup();
-                dir = msgs.getFirstDirectiveOf(DirectiveType.RESULT, "ALIVE");
-                if(!this.checkDirective(dir, DirectiveType.RESULT, "ALIVE")) {
-                    logger.debug("ALIVE failed.");
+                if(!expect(DirectiveType.RESULT,"ALIVE")) {
                     return false;
                 }
             } else {
@@ -531,42 +523,59 @@ public class ActiveClient extends CommandInterpreter implements Runnable
     }
     // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="expect(1)">
     private boolean expect(DirectiveType dt, String arg0) {
-        if( null == msgs ) {
+        if (null == msgs) {
             error("The MessageGroup is null when looking for directive: "
                     + dt);
             return false;
         }
-        if( null == arg0 ) {
+        if (null == arg0) {
             dir = msgs.getFirstDirectiveOf(dt);
-            if( null == dir ) {
+            if (null == dir) {
                 error("Expected Directive: " + dt + " but none were found in "
-                        + "the current MessageGroup");
+                        + "the current MessageGroup: " + msgs);
                 return false;
             }
         } else {
             dir = msgs.getFirstDirectiveOf(dt, arg0);
-            if( null == dir ) {
-
+            if (null == dir) {
+                error("Expected Directive: " + dt + " with argument0: " + arg0
+                        + ", but none were found in the current MessageGroup: "
+                        + msgs);
             }
         }
         return true;
     }
+    // </editor-fold>
+    
+    // <editor-fold defaultstate="collapsed" desc="expect(2)">
+    private boolean expect(DirectiveType dt) {
+        return expect(dt, null);
+    }
+    // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="error">
     public void error(Object obj) {
         logger.error(obj);
     }
+    // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="warn">
     public void warn(Object obj) {
         logger.warn(obj);
     }
+    // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="debug">
     public void debug(Object obj) {
         logger.debug(obj);
     }
+    // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="info">
     public void info(Object obj) {
         logger.info(obj);
     }
-
+    // </editor-fold>
 }
