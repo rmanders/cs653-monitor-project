@@ -79,7 +79,7 @@ public class ServerThread extends CommandInterpreter implements Runnable {
             return false;
         }
 
-        String password = CONFIG.getProperty("password");
+        String password = config.getProperty("password");
         if( !KarnCodec.quickSha(password).equals(dir.getArg(0)) ) {
             logger.warn(" The Participant Password Checksum from the foreign "
                     + "connection did not match. Rejecting login. Mine:[" +

@@ -62,7 +62,7 @@ public class CommandInterpreter
              "serverHostname","serverPort"};
 
     // Instance variables
-    protected ConfigData CONFIG = null;
+    protected ConfigData config = null;
     protected Socket socConnection = null;
     protected DiffieHellmanExchange dhe = null;
     protected KarnCodec karn = null;
@@ -76,13 +76,13 @@ public class CommandInterpreter
             String serverHostname, int serverPort,
             String identity, String password, Logger logger ) {
         this.logger = logger;
-        CONFIG = new ConfigData();
-        CONFIG.addProperty("monitorHostname", monitorHostname);
-        CONFIG.addProperty("monitorPort", String.valueOf(monitorPort));
-        CONFIG.addProperty("serverHostname", serverHostname);
-        CONFIG.addProperty("serverPort", String.valueOf(serverPort));
-        CONFIG.addProperty("identity", identity);
-        CONFIG.addProperty("password", password);
+        config = new ConfigData();
+        config.addProperty("monitorHostname", monitorHostname);
+        config.addProperty("monitorPort", String.valueOf(monitorPort));
+        config.addProperty("serverHostname", serverHostname);
+        config.addProperty("serverPort", String.valueOf(serverPort));
+        config.addProperty("identity", identity);
+        config.addProperty("password", password);
         this.identity = identity;
         logger.debug("Instanced CommandInterpreter");
     }
@@ -93,7 +93,7 @@ public class CommandInterpreter
             logger.error("FATAL ERROR: couldn't load configuration file");
             System.exit(1);
         }
-        this.identity = CONFIG.getProperty("identity");
+        this.identity = config.getProperty("identity");
     }
 
     public CommandInterpreter( ConfigData config, Logger logger ) {
@@ -101,10 +101,10 @@ public class CommandInterpreter
         if( !checkConfig(config)) {
             System.exit(1);
         }
-        CONFIG = config;
+        this.config = config;
         
         // TODO: this is a hack
-        this.identity = CONFIG.getProperty("identity");
+        this.identity = this.config.getProperty("identity");
     }
 
 
@@ -145,8 +145,8 @@ public class CommandInterpreter
      */
     public boolean openConnection() {
         try {
-            String host = CONFIG.getProperty("monitorHostname");
-            int port = Integer.parseInt(CONFIG.getProperty("monitorPort"));
+            String host = config.getProperty("monitorHostname");
+            int port = Integer.parseInt(config.getProperty("monitorPort"));
             return openConnection(host, port);
         } catch (Exception ex) {
             logger.error(ex);
@@ -428,7 +428,7 @@ public class CommandInterpreter
                 if (args.length == 1) {
                     sendCommand(command, args[0]);
                 } else {
-                    sendCommand(command, CONFIG.getProperty("password"));
+                    sendCommand(command, config.getProperty("password"));
                 }
                 break;
             }
@@ -440,8 +440,8 @@ public class CommandInterpreter
                 if (args.length == 2) {
                     sendCommand(command, args[0], args[1]);
                 } else {
-                    sendCommand(command, CONFIG.getProperty("serverHostname"),
-                            CONFIG.getProperty("serverPort"));
+                    sendCommand(command, config.getProperty("serverHostname"),
+                            config.getProperty("serverPort"));
                 }
                 break;
             }
@@ -453,8 +453,8 @@ public class CommandInterpreter
                 if (args.length == 1) {
                     sendCommand(command, args[0]);
                 } else {
-                    if( CONFIG.hasProperty("cookie") ) {
-                        sendCommand(command, CONFIG.getProperty("cookie"));
+                    if( config.hasProperty("cookie") ) {
+                        sendCommand(command, config.getProperty("cookie"));
                     } else {
                         logger.error("No monitor cookie found in CONFIG "
                                 + "properties, sending null cookie value");
@@ -539,15 +539,15 @@ public class CommandInterpreter
     // <editor-fold defaultstate="collapsed" desc="loadConfig">
     protected final boolean loadConfig( String filename ) {
         // TODO: verify integer value as integer prsable
-        CONFIG = ConfigData.getInstance(filename);
-        if( null == CONFIG ) {
+        config = ConfigData.getInstance(filename);
+        if( null == config ) {
             logger.error("Failed to load configuration file: " + filename);
             return false;
         }
 
         // Check for existence of required properties
         for( String prop : requiredConfigProperties ) {
-            if(!CONFIG.hasProperty(prop)) {
+            if(!config.hasProperty(prop)) {
                 logger.error("FATAL ERROR: while loading configuration file. "
                         + "The required property [" + prop +
                         "] was not found in  the file.");
@@ -652,7 +652,7 @@ public class CommandInterpreter
      * @return {@link ConfigData} reference
      */
     public ConfigData getCONFIG() {
-        return CONFIG;
+        return config;
     }
     // </editor-fold>
 

@@ -50,6 +50,9 @@ public class ActiveClient extends CommandInterpreter implements Runnable
     /** The client's public key v-value: keyV = keyS^2 mod keyN **/
     protected final BigInteger keyV;
 
+    /** Used to determine the result of the last transfer **/
+    protected String lastTransferResult = null;
+
     private ActiveClient( ConfigData config ) {
         super(config, Logger.getLogger(ActiveClient.class));
         this.keyS = new BigInteger(config.getProperty("keyS"),10);
@@ -174,9 +177,9 @@ public class ActiveClient extends CommandInterpreter implements Runnable
 
             try {
                 logger.debug("Opening Client connection to Monitor");
-                String monitorHostname = CONFIG.getProperty("monitorHostname");
+                String monitorHostname = config.getProperty("monitorHostname");
                 int monitorPort = Integer
-                        .parseInt(CONFIG.getProperty("monitorPort"));
+                        .parseInt(config.getProperty("monitorPort"));
                 socConnection = new Socket(monitorHostname,monitorPort);
                 initConnectionIO();
 
@@ -248,8 +251,8 @@ public class ActiveClient extends CommandInterpreter implements Runnable
                 }
 
                 // Store and save the cookie
-                CONFIG.addOrSetProperty("cookie",dir.getArg(1));
-                CONFIG.save();
+                config.addOrSetProperty("cookie",dir.getArg(1));
+                config.save();
                 
             } else if (dir.getArg().equals("ALIVE")) {
                 if(!executeCommand(Command.ALIVE)) {
@@ -270,9 +273,14 @@ public class ActiveClient extends CommandInterpreter implements Runnable
             msgs.reset();
             dir = msgs.getNext(DirectiveType.REQUIRE);
             if (null != dir && dir.getArg().equals("HOST_PORT")) {
-                result = executeCommand(Command.HOST_PORT);
-                if (!result) {
+                if(!executeCommand(Command.HOST_PORT)){
                     logger.error("Failed to execute HOST_PORT command");
+                    return false;
+                }
+
+                //Expect RESULT: HOST_PORT
+                msgs = receiveMessageGroup();
+                if(!expect(DirectiveType.RESULT,"HOST_PORT")) {
                     return false;
                 }
             }
@@ -287,7 +295,22 @@ public class ActiveClient extends CommandInterpreter implements Runnable
     // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="doTransfer">
+    /**
+     * Implements the transfer protocol
+     *
+     * @param to the identity of the account to transfer to
+     * @param from the identity of the account to transfer from
+     * @param amount the amount of wealth to transfer
+     * @return true if the <strong>protocol</strong> succeeded, false
+     * otherwise.
+     *
+     * NOTE: This function will return true of the transfer protocol succeeded.
+     * The return value does not necessarily mean the transfer was accepted.
+     * Use getLastTransferResult() to determine if the transfer succeeded or
+     * not.
+     */
     public boolean doTransfer(String to, String from, int amount) {
+        lastTransferResult = null;
         try {
             logger.info("Initiating transfer protocol[ from "
                     + from + " to " + to + " amount: " + amount + "]");
@@ -438,8 +461,12 @@ public class ActiveClient extends CommandInterpreter implements Runnable
                 return false;
             }
 
+            // Set the transfer Result.
+            lastTransferResult = dir.getArg(1);
+
             logger.info(dir);
             return true;
+
         } catch (Exception ex) {
             setLockNo();
             logger.error(ex);
