@@ -53,6 +53,9 @@ public class CommandInterpreter
     /** The minimum number of rounds to issue in a Zero-knowledge proof **/
     protected static final int ZKP_MIN_ROUNDS = 10;
 
+    /** The monitors exponent used for certification **/
+    protected static final BigInteger MON_EXP = new BigInteger("65537",10);
+
 
     private static final Pattern encPattern =
             Pattern.compile("^(RESULT):[\\s]+(IDENT)[\\s]+([a-zA-Z0-9]+)");

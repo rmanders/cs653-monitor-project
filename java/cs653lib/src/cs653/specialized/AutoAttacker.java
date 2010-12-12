@@ -3,7 +3,7 @@
  * and open the template in the editor.
  */
 
-package interactiveclient;
+package cs653.specialized;
 
 import cs653.*;
 import cs653.SpooferServer;

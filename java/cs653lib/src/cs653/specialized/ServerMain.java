@@ -3,7 +3,7 @@
  * and open the template in the editor.
  */
 
-package server;
+package cs653.specialized;
 
 import cs653.Server;
 import cs653.ConfigData;
@@ -13,7 +13,7 @@ import java.io.File;
  *
  * @author Ryan Anderson
  */
-public class Main {
+public class ServerMain {
 
     /**
      * @param args the command line arguments

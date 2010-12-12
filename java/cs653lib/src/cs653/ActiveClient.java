@@ -8,6 +8,7 @@ package cs653;
 import java.util.NoSuchElementException;
 import org.apache.log4j.Logger;
 import cs653.security.DiffieHellmanExchange;
+import cs653.security.KarnCodec;
 import cs653.security.RSAKeys;
 import java.io.File;
 import java.math.BigInteger;
@@ -52,6 +53,10 @@ public class ActiveClient extends CommandInterpreter implements Runnable
 
     /** Used to determine the result of the last transfer **/
     protected String lastTransferResult = null;
+
+    /** Used for verifying certificates signed by the monitor **/
+    protected BigInteger monitorKey = null;
+
 
     private ActiveClient( ConfigData config ) {
         super(config, Logger.getLogger(ActiveClient.class));
@@ -475,6 +480,166 @@ public class ActiveClient extends CommandInterpreter implements Runnable
     }
     // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="getMonitorKey">
+    public boolean getMonitorKey() {
+        if (!checkWaitingNoRequire()) {
+            return false;
+        }
+
+        if (!checkExecute(Command.GET_CERTIFICATE, "MONITOR")) {
+            return false;
+        }
+
+        msgs = receiveMessageGroup();
+        if (!expect(DirectiveType.RESULT, "MONITOR_KEY")) {
+            return false;
+        }
+        try {
+            this.monitorKey = new BigInteger(dir.getArg(1), 10);
+        } catch (NumberFormatException ex) {
+            error("Error converting MONITOR_KEY result to BigInteger; "
+                    + dir.getArg(1));
+            this.monitorKey = null;
+            return false;
+        }
+
+        msgs.reset();
+        return true;
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="makeCerificate">
+    /**
+     * Attempts to make a certificate for the identity of this instance of the
+     * active client.
+     *
+     * @return True if the certificate was successfully made, false otherwise.
+     */
+    public boolean makeCertificate() {
+        if (this.checkWaitingNoRequire()) {
+            return false;
+        }
+
+        if (!checkExecute(Command.MAKE_CERTIFICATE, keyV.toString(32),
+                keyN.toString(32))) {
+            return false;
+        }
+
+        msgs = receiveMessageGroup();
+        if (!expect(DirectiveType.RESULT, "CERTIFICATE")) {
+            return false;
+        }
+
+        if (!dir.getArg(1).toUpperCase().equals(identity.toUpperCase())) {
+            error("Monitor appears to have made certificate for wrong identity."
+                    + " my Ident: " + identity + " certificate ident: "
+                    + dir.getArg(1));
+            return false;
+        }
+
+        return true;
+    }
+    // </editor-fold>
+    
+    // <editor-fold defaultstate="collapsed" desc="checkPlayerCert">
+    /**
+     * This method takes a player ident and a public key known to the
+     * ActiveClient and check it's certificate against the monitors cert store.
+     *
+     * This method automatically tries to get the monitor key if it's not
+     * already been initialized.
+     *
+     * @param playerIdent The identity of the player to check a certificate for
+     * @param playerV The player's public key V value
+     * @param playerN The player's public key N value.
+     * @return True if the player is authenticated, false otherwise
+     *
+     */
+    public boolean checkPlayerCert(String playerIdent, BigInteger playerV,
+            BigInteger playerN) {
+
+        // Check the start conditions
+        if (null == playerIdent || null == playerV || null == playerN) {
+            error("Cannot accept null parameters in checkPlayerCert");
+            return false;
+        }
+
+        if (null == monitorKey && !getMonitorKey()) {
+            error("In checkPlayerCert: Can't check certificate if I don't "
+                    + "have the monitor's key. Tried to get it, but failed."
+                    + " See previous log statements.");
+            return false;
+        }
+
+        if (!checkWaitingNoRequire()) {
+            return false;
+        }
+
+        // Get the player's certificate
+        if (!checkExecute(Command.GET_CERTIFICATE, playerIdent)) {
+            return false;
+        }
+
+        // Expect RESULT: CERTIFICATE <playerIdent>
+        if (!expect(DirectiveType.RESULT, "CERTIFICATE",
+                playerIdent.toUpperCase())) {
+            return false;
+        }
+
+        // TODO: add check for no player found.. though it doesn't matter,
+        // it will return false anyway.
+
+        BigInteger x;
+        try {
+            x = new BigInteger(dir.getArg(2), 32);
+        } catch (Exception ex) {
+            error("Unable to convert player certificate to BigInteger in "
+                    + "checkPlayerCert from directive: " + dir);
+            return false;
+        }
+
+        String m = x.modPow(MON_EXP, monitorKey).toString(32);
+        String checkM = KarnCodec.quickSha(playerV.toString(32),
+                playerN.toString(32));
+        if (!m.toUpperCase().equals(checkM.toUpperCase())) {
+            warn("Invalid player cert for [" + playerIdent + "]. "
+                    + "theirs[" + m + "] + mine[" + checkM + "]");
+            return false;
+        }
+        return true;
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="checkWaitingNoRequire">
+    /**
+     * Check that we are connected to the monitor, there is no REQUIRE
+     * directive and the monitor is WAITING for a command.
+     *
+     * @return true if we are in the proper state, false otherwise.
+     */
+    public boolean checkWaitingNoRequire() {
+        if (null == getSocket() || !getSocket().isConnected()) {
+            error("Checking for WAITING but not connected");
+            return false;
+        }
+        if (null == msgs) {
+            error("Trying to check monitor messages, but I have none.");
+            return false;
+        }
+        if (msgs.hasDirective(DirectiveType.REQUIRE)) {
+            error("Message group contains a REQUIRE when there must "
+                    + "be none");
+            return false;
+        }
+        if (!msgs.hasDirective(DirectiveType.WAITING)) {
+            error("Message Group contains no WAITING directive when "
+                    + "on was expected");
+            return false;
+        }
+        return true;
+    }
+    // </editor-fold>
+
     // <editor-fold defaultstate="collapsed" desc="checkDirective(1)">
     private boolean checkDirective(Directive dir, DirectiveType expType,
             String expArg0) {
@@ -550,14 +715,31 @@ public class ActiveClient extends CommandInterpreter implements Runnable
     }
     // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="checkExecute">
+    /**
+     * Tries to execute a command and logs and error message if execution failed
+     *
+     * @param cmd The {@link Command} to execute
+     * @param args Arguments for the command to execute
+     * @return True if the command was successfully executed, False otherwise.
+     */
+    public boolean checkExecute(Command cmd, String... args) {
+        if (!executeCommand(cmd, args)) {
+            error("Failed to execute the [" + cmd + "] command!");
+            return false;
+        }
+        return true;
+    }
+    // </editor-fold>
+
     // <editor-fold defaultstate="collapsed" desc="expect(1)">
-    private boolean expect(DirectiveType dt, String arg0) {
+    private boolean expect(DirectiveType dt, String... args) {
         if (null == msgs) {
             error("The MessageGroup is null when looking for directive: "
                     + dt);
             return false;
         }
-        if (null == arg0) {
+        if (null == args) {
             dir = msgs.getFirstDirectiveOf(dt);
             if (null == dir) {
                 error("Expected Directive: " + dt + " but none were found in "
@@ -565,11 +747,27 @@ public class ActiveClient extends CommandInterpreter implements Runnable
                 return false;
             }
         } else {
-            dir = msgs.getFirstDirectiveOf(dt, arg0);
+            dir = msgs.getFirstDirectiveOf(dt, args[0]);
             if (null == dir) {
-                error("Expected Directive: " + dt + " with argument0: " + arg0
-                        + ", but none were found in the current MessageGroup: "
-                        + msgs);
+                error("Expected Directive: " + dt + " with argument0: " 
+                        + args[0] + ", but none were found in the current "
+                        + "MessageGroup: " + msgs);
+                return false;
+            }
+            // Check all the args
+            if(dir.getArgCount() < args.length) {
+                error("Checked to check " + args.length + " arguments, but "
+                        + "directive [" + dir + "] only has "
+                        + dir.getArgCount() + " arguments.");
+                return false;
+            }
+            for( int i=0; i<args.length; i++ ) {
+                if(!args[i].equals(dir.getArg(i))) {
+                    error("Expected Argument number " + i + " did not match "
+                            + "actual argument of directive [" + dir + "]."
+                            + " Expected argument value[" + args[i] + "]");
+                    return false;
+                }
             }
         }
         return true;

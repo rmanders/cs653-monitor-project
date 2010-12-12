@@ -17,8 +17,8 @@ public class MakeSomeKeys {
 
     public static void main( String args[] ) {
 
-        BigInteger p = BigInteger.probablePrime(256, new SecureRandom());
-        BigInteger q = BigInteger.probablePrime(256, new SecureRandom());
+        BigInteger p = BigInteger.probablePrime(2048, new SecureRandom());
+        BigInteger q = BigInteger.probablePrime(2048, new SecureRandom());
         BigInteger n = p.multiply(q);
         System.out.println(n.toString(32));
     }

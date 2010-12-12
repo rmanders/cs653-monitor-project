@@ -54,7 +54,7 @@ public class KarnCodec {
         this.secRand = new SecureRandom();
     }
 
-    // <editor-fold defaultstate="collapsed" desc="quickSha">
+    // <editor-fold defaultstate="collapsed" desc="quickSha(1)">
     /**
      * This function is used to get a SHA digest of the input and return it
      * in a hexadecimal string representation.
@@ -74,6 +74,36 @@ public class KarnCodec {
         }
         lmd.reset();
         lmd.update(input.toUpperCase().getBytes());
+        return (new BigInteger(1, lmd.digest())).toString(16);
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="quickSha(2)">
+    /**
+     * This function is used to get a SHA digest of a set of inputs and return
+     * it in a hexadecimal string representation.
+     *
+     * @param inputs an array of some strings
+     * @return SHA digest in hexadecimal format
+     */
+    public static String quickSha(final String... inputs) {
+        MessageDigest lmd = null;
+        try {
+            lmd = MessageDigest.getInstance("SHA");
+        } catch (NoSuchAlgorithmException ex) {
+            logger.error("FATAL: quickSha failed to get SHA algorithm. All "
+                    + "attempts for the monitor to connect to passive server "
+                    + "will be rejected!");
+            return null;
+        }
+        lmd.reset();
+        if( null == inputs) {
+            return null;
+        }
+
+        for( String enc : inputs ) {
+            lmd.update(enc.toUpperCase().getBytes());
+        }
         return (new BigInteger(1, lmd.digest())).toString(16);
     }
     // </editor-fold>
