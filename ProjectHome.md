@@ -1,0 +1,1 @@
+This project is a temporary code repository for a group working on a Network Security Class project.
